@@ -2,3 +2,7 @@ node_modules
 dist
 .DS_Store
 build.log
+
+# signing keys (kept in ~/.android-keys, never in the repo)
+*.jks
+*.keystore

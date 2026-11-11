@@ -6,12 +6,14 @@ import { today } from './date.js';
 // 任务结构：
 // { id, title, note, date: 'YYYY-MM-DD' | '', time: 'HH:MM' | '',
 //   important, urgent, done, createdAt, doneAt,
-//   repeat: '' | 'daily' | 'weekdays' | 'weekly' | 'monthly', doneDates: [], skipDates: [] }  （见 repeat.js）
+//   repeat: '' | 'daily' | 'weekdays' | 'weekly' | 'monthly', doneDates: [], skipDates: [],  （见 repeat.js）
+//   remind: null | 提前几分钟（0 = 准时；只有设了时间才生效，见 notify.js） }
 
 export const state = reactive({
   ready: false,
   tasks: [],
-  settings: { showLunar: true, showHoliday: true },
+  // remindOn：到点提醒总开关；defaultRemind：新任务设了时间时默认提前几分钟提醒（0 = 准时）
+  settings: { showLunar: true, showHoliday: true, remindOn: true, defaultRemind: 0 },
 });
 
 const uid = () =>
@@ -32,6 +34,8 @@ export function normalizeTask(t) {
     repeat: REPEATS.includes(t.repeat) ? t.repeat : '',
     doneDates: dateList(t.doneDates),
     skipDates: dateList(t.skipDates),
+    // 老数据没有这个字段：有时间的默认准时提醒
+    remind: Number.isInteger(t.remind) && t.remind >= 0 ? t.remind : t.remind === undefined && t.time ? 0 : null,
   };
 }
 const dateList = (a) => (Array.isArray(a) ? a.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)) : []);
@@ -63,7 +67,8 @@ export const tasksOn = (d) =>
 export const findTask = (id) => state.tasks.find((t) => t.id === id);
 
 export function addTask(fields) {
-  const task = normalizeTask({ ...fields, id: uid(), createdAt: Date.now() });
+  const remind = fields.remind !== undefined ? fields.remind : fields.time ? state.settings.defaultRemind : null;
+  const task = normalizeTask({ ...fields, remind, id: uid(), createdAt: Date.now() });
   if (task.repeat && !task.date) task.date = today();
   state.tasks.push(task);
   return task;

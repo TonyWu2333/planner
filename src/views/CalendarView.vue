@@ -11,7 +11,7 @@ import { today, addDays, parseYmd, ymd, diffDays, dayInfo, dateLabel, lunarYearL
 import { quadrantOf, byTime, byDate } from '../lib/quadrant.js';
 import { haptic, toast, clickGuard } from '../lib/ui.js';
 
-const emit = defineEmits(['open', 'add']);
+const emit = defineEmits(['open', 'add', 'search']);
 
 const selected = ref(today());
 const mode = ref('month'); // 'month' | 'week'
@@ -287,8 +287,9 @@ defineExpose({ selected });
           <Icon name="chevron-down" class="cal-caret" />
         </button>
         <div class="cal-tools">
+          <button class="cal-search press" aria-label="搜索" @click="emit('search')"><Icon name="search" /></button>
           <Transition name="pop">
-            <button v-if="selected !== today()" class="today-btn press" @click="goToday">今天</button>
+            <button v-if="selected !== today()" class="today-btn press" aria-label="回到今天" @click="goToday">今</button>
           </Transition>
           <div class="cal-nav">
             <button class="press" :aria-label="mode === 'month' ? '上个月' : '上一周'" @click="shift(-1)"><Icon name="chevron-left" /></button>
@@ -442,16 +443,18 @@ defineExpose({ selected });
 .cal-bg { position: absolute; inset: 0; background: var(--surface); }
 .cal-head { flex: none; position: relative; z-index: 4; background: var(--surface); }
 .cal-header { display: flex; align-items: center; gap: 12px; padding: var(--head-top) 14px 4px 20px; }
-.cal-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; text-align: left; }
+.cal-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; text-align: left; white-space: nowrap; }
 .cal-month { font-size: 30px; font-weight: 750; letter-spacing: -.5px; line-height: 1; }
 .cal-month small { font-size: 18px; font-weight: 650; margin-left: 2px; letter-spacing: 0; }
 .cal-sub { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; line-height: 1.15; color: var(--text-3); font-weight: 500; }
 .cal-sub em { font-style: normal; }
 .cal-caret { width: 16px; height: 16px; color: var(--text-3); stroke-width: 2.2; margin-left: -4px; }
-.cal-tools { flex: none; display: flex; align-items: center; gap: 8px; }
+.cal-tools { flex: none; display: flex; align-items: center; gap: 6px; }
+.cal-search { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: var(--text-2); background: var(--fill); }
+.cal-search .icon { width: 17px; height: 17px; stroke-width: 2.1; }
 .today-btn {
-  height: 32px; padding: 0 12px; border-radius: 99px;
-  font-size: 13px; font-weight: 650; color: var(--accent); background: var(--accent-soft);
+  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 14px; font-weight: 700; color: var(--accent); background: var(--accent-soft);
 }
 .cal-nav { display: flex; align-items: center; height: 32px; border-radius: 99px; background: var(--fill); }
 .cal-nav button { width: 36px; height: 32px; display: grid; place-items: center; color: var(--text-2); border-radius: 99px; }

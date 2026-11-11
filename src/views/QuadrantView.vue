@@ -8,7 +8,7 @@ import { QUADRANTS, quadrantOf, quadrantFlags, byDate } from '../lib/quadrant.js
 import { nextOccurrence, instanceOf } from '../lib/repeat.js';
 import { haptic, clickGuard, toast } from '../lib/ui.js';
 
-const emit = defineEmits(['open', 'add']);
+const emit = defineEmits(['open', 'add', 'search']);
 
 const RANGES = [
   ['all', '全部'],
@@ -129,6 +129,7 @@ onBeforeUnmount(() => {
   <div class="quadview">
     <header class="page-header">
       <h1>四象限</h1>
+      <button class="icon-btn qv-search press" aria-label="搜索" @click="emit('search')"><Icon name="search" /></button>
       <button class="chip press" :class="{ on: showDone }" @click="showDone = !showDone">
         <Icon :name="showDone ? 'eye' : 'eye-off'" />已完成
       </button>
@@ -183,6 +184,8 @@ onBeforeUnmount(() => {
 <style>
 .quadview { height: 100%; display: flex; flex-direction: column; }
 .quadview .page-header { align-items: center; }
+.qv-search { width: 36px; height: 36px; background: var(--fill); }
+.qv-search .icon { width: 18px; height: 18px; stroke-width: 2.1; }
 .seg-wrap { padding: 0 16px 12px; }
 .seg { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; border-radius: 12px; background: var(--fill); }
 .seg button { position: relative; z-index: 1; height: 32px; font-size: 14px; color: var(--text-2); transition: color .25s; }

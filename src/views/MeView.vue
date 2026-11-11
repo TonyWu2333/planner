@@ -4,6 +4,7 @@ import Icon from '../components/Icon.vue';
 import { state, tasksOn } from '../lib/store.js';
 import { today, addDays, mondayOf, parseYmd, ymd, WEEKDAY } from '../lib/date.js';
 import { exportBackup, importBackup } from '../lib/backup.js';
+import { REMIND_OPTIONS, remindLabel, notifyState } from '../lib/notify.js';
 import { haptic, toast } from '../lib/ui.js';
 
 const td = computed(() => today());
@@ -61,6 +62,11 @@ async function onImport(e) {
   if (r.message) toast(r.message);
   if (r.ok) haptic.success();
 }
+function cycleDefaultRemind() {
+  haptic.select();
+  const i = REMIND_OPTIONS.indexOf(state.settings.defaultRemind);
+  state.settings.defaultRemind = REMIND_OPTIONS[(i + 1) % REMIND_OPTIONS.length];
+}
 function toggle(key) {
   haptic.select();
   state.settings[key] = !state.settings[key];
@@ -111,6 +117,23 @@ function toggle(key) {
       </button>
     </section>
 
+    <div class="group-title">提醒</div>
+    <section class="list">
+      <button class="li" @click="toggle('remindOn')">
+        <span class="li-ico" style="--c: #f59e0b"><Icon name="bell" /></span>
+        <span class="li-main">到点提醒<small>设了时间的任务会发系统通知，App 关着也会响</small></span>
+        <span class="switch" :class="{ on: state.settings.remindOn }"><i /></span>
+      </button>
+      <button class="li" :disabled="!state.settings.remindOn" @click="cycleDefaultRemind">
+        <span class="li-ico" style="--c: #4b5cf0"><Icon name="clock" /></span>
+        <span class="li-main">新任务默认提醒<small>点一下切换；单个任务可以在详情里改</small></span>
+        <span class="li-val">{{ remindLabel(state.settings.defaultRemind) }}</span>
+      </button>
+    </section>
+    <p v-if="state.settings.remindOn && notifyState.permission === 'denied'" class="li-warn">
+      通知权限没开，提醒发不出来：系统设置 → 应用 → 每日计划 → 通知，打开“允许通知”。
+    </p>
+
     <div class="group-title">数据</div>
     <section class="list">
       <button class="li" @click="onExport">
@@ -132,7 +155,7 @@ function toggle(key) {
         <span class="li-main">数据只保存在本机<small>不联网、不上传。卸载 App 或清除应用数据会一起删除，建议定期导出备份。</small></span>
       </div>
     </section>
-    <p class="ver">每日计划 · v0.3.0</p>
+    <p class="ver">每日计划 · v0.4.0</p>
   </div>
 </template>
 
@@ -184,4 +207,7 @@ function toggle(key) {
 .switch.on { background: var(--accent); }
 .switch.on i { transform: translateX(20px); }
 .ver { text-align: center; font-size: 12px; color: var(--text-3); margin: 20px 0 8px; }
+.li-val { flex: none; font-size: 14.5px; color: var(--accent); font-weight: 550; }
+.li:disabled { opacity: .45; }
+.li-warn { margin: -4px 20px 12px; font-size: 12.5px; line-height: 1.5; color: var(--danger); }
 </style>

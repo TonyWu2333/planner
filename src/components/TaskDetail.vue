@@ -7,8 +7,10 @@ import DatePanel from './DatePanel.vue';
 import TimePanel from './TimePanel.vue';
 import QuadPanel from './QuadPanel.vue';
 import RepeatPanel from './RepeatPanel.vue';
+import RemindPanel from './RemindPanel.vue';
+import { remindLabel } from '../lib/notify.js';
 import { repeatLabel, nextOccurrence } from '../lib/repeat.js';
-import { findTask, updateTask, toggleDone, removeTask } from '../lib/store.js';
+import { state, findTask, updateTask, toggleDone, removeTask } from '../lib/store.js';
 import { dateLabel, parseYmd, WEEKDAY, today, pad } from '../lib/date.js';
 import { quadrantOf, quadrantFlags, isOverdue } from '../lib/quadrant.js';
 import { haptic, toast } from '../lib/ui.js';
@@ -72,8 +74,19 @@ function setDate(v) {
   panel.value = null;
 }
 function setTime(v) {
-  updateTask(t.value.id, v && !t.value.date ? { time: v, date: today() } : { time: v });
+  const patch = { time: v };
+  if (v && !t.value.date) patch.date = today();
+  // 第一次设时间：按“我的”里的默认提醒来
+  if (v && !t.value.time && t.value.remind == null) patch.remind = state.settings.defaultRemind;
+  updateTask(t.value.id, patch);
   panel.value = null;
+}
+function setRemind(v) {
+  updateTask(t.value.id, { remind: v });
+  panel.value = null;
+}
+function openRemind() {
+  togglePanel(t.value.time ? 'remind' : 'time'); // 没设时间就先去选时间
 }
 function setRepeat(v) {
   updateTask(t.value.id, v && !t.value.date ? { repeat: v, date: today() } : { repeat: v });
@@ -138,6 +151,17 @@ const fmt = (ms) => {
         </button>
         <Transition name="panel">
           <div v-if="panel === 'time'" class="prop-panel"><TimePanel :model-value="t.time" @update:model-value="setTime" /></div>
+        </Transition>
+        <button class="prop" @click="openRemind">
+          <span class="prop-ico"><Icon name="bell" /></span>
+          <span class="prop-label">提醒</span>
+          <span class="prop-val" :class="{ set: t.time && t.remind != null }">
+            {{ !t.time ? '先设时间' : !state.settings.remindOn && t.remind != null ? '已关闭全部提醒' : remindLabel(t.remind) }}
+          </span>
+          <Icon name="chevron-right" class="prop-arrow" :class="{ open: panel === 'remind' }" />
+        </button>
+        <Transition name="panel">
+          <div v-if="panel === 'remind'" class="prop-panel"><RemindPanel :model-value="t.remind" @update:model-value="setRemind" /></div>
         </Transition>
         <button class="prop" @click="togglePanel('repeat')">
           <span class="prop-ico"><Icon name="repeat" /></span>

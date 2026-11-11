@@ -3,6 +3,12 @@
   "appName": "每日计划",
   "webDir": "dist",
   "plugins": {
-    "SystemBars": { "insetsHandling": "disable" }
+    "SystemBars": {
+      "insetsHandling": "disable"
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_notify",
+      "iconColor": "#4B5CF0"
+    }
   }
 }

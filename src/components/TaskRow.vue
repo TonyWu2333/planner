@@ -143,11 +143,11 @@ const openRow = { close: null };
         <div v-if="(showDate && task.date) || (compact && task.time) || task.note || task.repeat" class="trow-meta">
           <span v-if="showDate && task.date" :class="{ overdue: isOverdue(task) }">{{ dateLabel(task.date) }}</span>
           <span v-if="task.repeat" class="meta-repeat"><Icon name="repeat" /><span v-if="!compact">{{ repeatLabel(task.repeat, task.date) }}</span></span>
-          <span v-if="compact && task.time" class="num">{{ task.time }}</span>
+          <span v-if="compact && task.time" class="num meta-time"><Icon v-if="task.remind != null" name="bell" />{{ task.time }}</span>
           <span v-if="task.note" class="meta-note"><Icon name="note" /></span>
         </div>
       </div>
-      <div v-if="!compact && task.time" class="trow-time num">{{ task.time }}</div>
+      <div v-if="!compact && task.time" class="trow-time num"><Icon v-if="task.remind != null && !task.done" name="bell" />{{ task.time }}</div>
     </div>
   </div>
 </template>
@@ -209,7 +209,10 @@ const openRow = { close: null };
 .meta-note .icon { width: 13px; height: 13px; display: block; }
 .meta-repeat { display: inline-flex; align-items: center; gap: 3px; }
 .meta-repeat .icon { width: 12px; height: 12px; }
-.trow-time { flex: none; font-size: 14px; color: var(--text-2); font-weight: 500; }
+.trow-time { flex: none; display: flex; align-items: center; gap: 3px; font-size: 14px; color: var(--text-2); font-weight: 500; }
+.trow-time .icon { width: 13px; height: 13px; color: var(--text-3); }
+.meta-time { display: inline-flex; align-items: center; gap: 2px; }
+.meta-time .icon { width: 11px; height: 11px; }
 .done .trow-time { color: var(--text-3); }
 
 /* 紧凑版（四象限卡片）：没有卡片底，标题最多两行 */
