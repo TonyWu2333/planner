@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+// 版本号只在 package.json 里改一处：versionName 直接用它，versionCode = 主×10000 + 次×100 + 修订
+// （0.4.0 → 400，0.4.1 → 401，1.0.0 → 10000），保证每次发版都比上一版大，覆盖安装时数据才会保留
+def appVersion = new groovy.json.JsonSlurper().parse(file('../../package.json')).version
+def (vMajor, vMinor, vPatch) = appVersion.tokenize('.-')[0..2].collect { it as int }
+assert vMinor < 100 && vPatch < 100 : "package.json version ${appVersion}: minor/patch must be < 100"
+
 // 正式版签名：密钥和密码放在仓库外（默认 ~/.android-keys/planner-release.properties），不进 git
 def releaseProps = new Properties()
 def releasePropsFile = file(System.getenv('PLANNER_SIGNING') ?: "${System.getProperty('user.home')}/.android-keys/planner-release.properties")
@@ -12,8 +18,8 @@ android {
         applicationId "com.tonywu.planner"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 4
-        versionName "0.4.0"
+        versionCode vMajor * 10000 + vMinor * 100 + vPatch
+        versionName appVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

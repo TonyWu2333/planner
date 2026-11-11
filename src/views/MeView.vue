@@ -7,6 +7,8 @@ import { exportBackup, importBackup } from '../lib/backup.js';
 import { REMIND_OPTIONS, remindLabel, notifyState } from '../lib/notify.js';
 import { haptic, toast } from '../lib/ui.js';
 
+// 由 vite.config.js 注入（来自 package.json）
+const version = __APP_VERSION__;
 const td = computed(() => today());
 const todayTasks = computed(() => tasksOn(td.value));
 const todayDone = computed(() => todayTasks.value.filter((t) => t.done).length);
@@ -155,7 +157,7 @@ function toggle(key) {
         <span class="li-main">数据只保存在本机<small>不联网、不上传。卸载 App 或清除应用数据会一起删除，建议定期导出备份。</small></span>
       </div>
     </section>
-    <p class="ver">每日计划 · v0.4.0</p>
+    <p class="ver">每日计划 · v{{ version }}</p>
   </div>
 </template>
 

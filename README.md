@@ -18,6 +18,10 @@ npm run install-release  # adb install to the connected phone
 npm run apk              # debug APK (debuggable WebView, for profiling via chrome://inspect)
 ```
 
+Bump `version` in `package.json` before each release — it is the only place: Android's `versionName` is that string and
+`versionCode` is derived from it (`major*10000 + minor*100 + patch`, e.g. 0.4.1 → 401), so every release installs over the
+previous one and keeps its data. The app's "我的" page shows the same version.
+
 Release signing reads `~/.android-keys/planner-release.properties` (override with `PLANNER_SIGNING=/path`),
 which points at the keystore and holds its passwords. Neither is in the repo — back that folder up:
 without the same key, a new build can't be installed over the old one.
