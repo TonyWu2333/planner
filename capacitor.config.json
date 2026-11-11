@@ -1,0 +1,8 @@
+{
+  "appId": "com.tonywu.planner",
+  "appName": "每日计划",
+  "webDir": "dist",
+  "plugins": {
+    "SystemBars": { "insetsHandling": "disable" }
+  }
+}

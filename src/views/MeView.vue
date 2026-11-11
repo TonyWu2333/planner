@@ -1,0 +1,187 @@
+<script setup>
+import { ref, computed } from 'vue';
+import Icon from '../components/Icon.vue';
+import { state, tasksOn } from '../lib/store.js';
+import { today, addDays, mondayOf, parseYmd, ymd, WEEKDAY } from '../lib/date.js';
+import { exportBackup, importBackup } from '../lib/backup.js';
+import { haptic, toast } from '../lib/ui.js';
+
+const td = computed(() => today());
+const todayTasks = computed(() => tasksOn(td.value));
+const todayDone = computed(() => todayTasks.value.filter((t) => t.done).length);
+const ratio = computed(() => (todayTasks.value.length ? todayDone.value / todayTasks.value.length : 0));
+// 重复任务只算今天这一次
+const pendingAll = computed(
+  () => state.tasks.filter((t) => !t.repeat && !t.done).length + todayTasks.value.filter((t) => t.repeat && !t.done).length,
+);
+const overdue = computed(() => state.tasks.filter((t) => !t.repeat && !t.done && t.date && t.date < td.value).length);
+const weekDone = computed(() => {
+  const start = mondayOf(td.value);
+  return doneDays.value.filter((d) => d >= start && d <= td.value).length;
+});
+
+// 每一次完成的日期：普通任务看 doneAt，重复任务看 doneDates
+const doneDays = computed(() =>
+  state.tasks.flatMap((t) => (t.repeat ? t.doneDates : t.doneAt ? [ymd(new Date(t.doneAt))] : [])),
+);
+// 最近 7 天每天完成数
+const last7 = computed(() => {
+  const days = Array.from({ length: 7 }, (_, i) => addDays(td.value, i - 6));
+  const counts = Object.fromEntries(days.map((d) => [d, 0]));
+  for (const d of doneDays.value) if (d in counts) counts[d]++;
+  const max = Math.max(1, ...Object.values(counts));
+  return days.map((d) => ({ d, n: counts[d], h: counts[d] / max, label: d === td.value ? '今' : WEEKDAY[parseYmd(d).getDay()] }));
+});
+
+const greeting = computed(() => {
+  const h = new Date().getHours();
+  return h < 6 ? '夜深了' : h < 11 ? '早上好' : h < 13 ? '中午好' : h < 18 ? '下午好' : '晚上好';
+});
+const summary = computed(() => {
+  const left = todayTasks.value.length - todayDone.value;
+  if (!todayTasks.value.length) return '今天还没有安排任务';
+  if (!left) return '今天的任务全部完成了，真棒';
+  return `今天还有 ${left} 个任务待完成`;
+});
+
+const fileInput = ref(null);
+async function onExport() {
+  haptic.light();
+  try {
+    await exportBackup();
+  } catch (e) {
+    toast('导出失败：' + e.message);
+  }
+}
+async function onImport(e) {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  const r = await importBackup(f);
+  if (r.message) toast(r.message);
+  if (r.ok) haptic.success();
+}
+function toggle(key) {
+  haptic.select();
+  state.settings[key] = !state.settings[key];
+}
+</script>
+
+<template>
+  <div class="meview scroll">
+    <header class="page-header"><h1>我的</h1></header>
+
+    <section class="hero">
+      <div class="hero-text">
+        <p class="hero-hi">{{ greeting }}</p>
+        <p class="hero-sum">{{ summary }}</p>
+        <div class="hero-bar"><i :style="{ width: ratio * 100 + '%' }" /></div>
+        <p class="hero-num num">{{ todayDone }} / {{ todayTasks.length }} 已完成</p>
+      </div>
+    </section>
+
+    <section class="stats">
+      <div class="stat"><b class="num">{{ weekDone }}</b><span>本周完成</span></div>
+      <div class="stat"><b class="num">{{ pendingAll }}</b><span>待办总数</span></div>
+      <div class="stat" :class="{ warn: overdue }"><b class="num">{{ overdue }}</b><span>已过期</span></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><b>近 7 天完成</b><span class="num">共 {{ last7.reduce((s, x) => s + x.n, 0) }} 个</span></div>
+      <div class="bars">
+        <div v-for="x in last7" :key="x.d" class="bar" :class="{ today: x.d === td }">
+          <span class="bar-n num">{{ x.n || '' }}</span>
+          <i :style="{ height: Math.max(x.h * 100, 4) + '%' }" />
+          <span class="bar-l">{{ x.label }}</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="group-title">日历显示</div>
+    <section class="list">
+      <button class="li" @click="toggle('showLunar')">
+        <span class="li-ico" style="--c: #8b5cf6"><Icon name="lunar" /></span>
+        <span class="li-main">农历与节气</span>
+        <span class="switch" :class="{ on: state.settings.showLunar }"><i /></span>
+      </button>
+      <button class="li" @click="toggle('showHoliday')">
+        <span class="li-ico" style="--c: #ef4444"><Icon name="holiday" /></span>
+        <span class="li-main">法定节假日与调休</span>
+        <span class="switch" :class="{ on: state.settings.showHoliday }"><i /></span>
+      </button>
+    </section>
+
+    <div class="group-title">数据</div>
+    <section class="list">
+      <button class="li" @click="onExport">
+        <span class="li-ico" style="--c: #0ea5e9"><Icon name="upload" /></span>
+        <span class="li-main">导出备份<small>生成 JSON 文件，发到微信或网盘保存</small></span>
+        <Icon name="chevron-right" class="li-arrow" />
+      </button>
+      <button class="li" @click="fileInput.click()">
+        <span class="li-ico" style="--c: #10b981"><Icon name="download" /></span>
+        <span class="li-main">从备份恢复<small>会替换当前全部 {{ state.tasks.length }} 条任务</small></span>
+        <Icon name="chevron-right" class="li-arrow" />
+      </button>
+      <input ref="fileInput" type="file" hidden @change="onImport" />
+    </section>
+
+    <section class="list note-card">
+      <div class="li static">
+        <span class="li-ico" style="--c: #64748b"><Icon name="shield" /></span>
+        <span class="li-main">数据只保存在本机<small>不联网、不上传。卸载 App 或清除应用数据会一起删除，建议定期导出备份。</small></span>
+      </div>
+    </section>
+    <p class="ver">每日计划 · v0.3.0</p>
+  </div>
+</template>
+
+<style>
+.meview { height: 100%; padding-bottom: 24px; }
+.hero {
+  margin: 0 16px; padding: 20px; border-radius: var(--r-lg); color: #fff;
+  background: radial-gradient(120% 140% at 100% 0%, #8b5cf6 0%, transparent 55%), linear-gradient(135deg, #4b5cf0, #6d5cf0);
+  box-shadow: 0 14px 30px -12px rgba(75, 92, 240, .55);
+}
+.hero-hi { margin: 0; font-size: 14px; opacity: .85; }
+.hero-sum { margin: 4px 0 16px; font-size: 20px; font-weight: 700; }
+.hero-bar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .25); overflow: hidden; }
+.hero-bar i { display: block; height: 100%; border-radius: inherit; background: #fff; transition: width .6s var(--ease); }
+.hero-num { margin: 8px 0 0; font-size: 12.5px; opacity: .85; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 16px 0; }
+.stat { padding: 14px 12px; border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-1); display: flex; flex-direction: column; gap: 2px; }
+.stat b { font-size: 24px; font-weight: 700; line-height: 1.1; }
+.stat span { font-size: 12px; color: var(--text-3); }
+.stat.warn b { color: var(--danger); }
+
+.card { margin: 12px 16px 0; padding: 16px; border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-1); }
+.card-head { display: flex; justify-content: space-between; align-items: baseline; }
+.card-head b { font-size: 15px; font-weight: 650; }
+.card-head span { font-size: 12px; color: var(--text-3); }
+.bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; height: 120px; margin-top: 12px; }
+.bar { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; min-height: 0; }
+.bar i { width: 100%; max-width: 22px; border-radius: 6px; background: var(--fill-2); transition: height .6s var(--ease); }
+.bar.today i { background: var(--accent); }
+.bar-n { font-size: 11px; color: var(--text-3); height: 14px; }
+.bar-l { font-size: 11.5px; color: var(--text-3); }
+.bar.today .bar-l, .bar.today .bar-n { color: var(--accent); font-weight: 600; }
+
+.group-title { margin: 22px 32px 8px; font-size: 13px; font-weight: 600; color: var(--text-3); }
+.list { margin: 0 16px; border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-1); overflow: hidden; }
+.li { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 10px 14px; text-align: left; }
+.li:not(.static):active { background: var(--fill); }
+.li + .li { border-top: 1px solid var(--sep); }
+.li-ico { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; flex: none; background: var(--c); color: #fff; }
+.li-ico .icon { width: 18px; height: 18px; stroke-width: 2; }
+.li-main { flex: 1; min-width: 0; font-size: 15.5px; }
+.li-main small { display: block; font-size: 12px; color: var(--text-3); margin-top: 1px; line-height: 1.45; }
+.li-arrow { width: 16px; height: 16px; color: var(--text-3); }
+.note-card { margin-top: 12px; }
+.li.static { align-items: flex-start; }
+.switch { position: relative; width: 50px; height: 30px; border-radius: 15px; background: var(--fill-2); transition: background-color .25s; flex: none; }
+.switch i { position: absolute; top: 2px; left: 2px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .2); transition: transform .3s var(--spring); }
+.switch.on { background: var(--accent); }
+.switch.on i { transform: translateX(20px); }
+.ver { text-align: center; font-size: 12px; color: var(--text-3); margin: 20px 0 8px; }
+</style>

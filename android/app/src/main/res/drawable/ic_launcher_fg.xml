@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 白色日历卡片 + 对勾；安全区是中间 66dp -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M41,34h26a10,10 0 0 1 10,10v23a10,10 0 0 1 -10,10h-26a10,10 0 0 1 -10,-10v-23a10,10 0 0 1 10,-10z" />
+    <path android:fillColor="#CCFFFFFF"
+        android:pathData="M42.5,28h0a2.5,2.5 0 0 1 2.5,2.5v7a2.5,2.5 0 0 1 -5,0v-7a2.5,2.5 0 0 1 2.5,-2.5zM65.5,28h0a2.5,2.5 0 0 1 2.5,2.5v7a2.5,2.5 0 0 1 -5,0v-7a2.5,2.5 0 0 1 2.5,-2.5z" />
+    <path android:strokeColor="#FF5563F5" android:strokeWidth="6"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M43,57l7.5,7.5l15,-16" />
+    <path android:fillColor="#FFFBBF24"
+        android:pathData="M76,30m-5,0a5,5 0 1 0 10,0a5,5 0 1 0 -10,0" />
+</vector>
