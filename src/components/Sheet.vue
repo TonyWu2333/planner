@@ -56,15 +56,15 @@ function up() {
       <div
         v-if="open"
         class="sheet"
-        :class="{ dragging }"
+        :class="{ dragging, snap: keyboard.snap }"
         :style="{
           // 键盘高度里已经含了底部手势条，所以加回 --sab（弹窗自己的底部留白），不然键盘上方会多一条空
-          transform: keyboard.height
-            ? `translate3d(0, calc(${dragY - keyboard.height}px + var(--sab)), 0)`
+          transform: keyboard.lift
+            ? `translate3d(0, calc(${dragY - keyboard.lift}px + var(--sab)), 0)`
             : dragY
               ? `translate3d(0, ${dragY}px, 0)`
               : undefined,
-          maxHeight: `calc(${maxHeight} - ${keyboard.height}px)`,
+          maxHeight: `calc(${maxHeight} - ${keyboard.lift}px)`,
         }"
         role="dialog"
         @pointerdown="down"
@@ -91,7 +91,7 @@ function up() {
   /* 和安卓键盘动画差不多的时长和曲线 */
   transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
 }
-.sheet.dragging { transition: none; }
+.sheet.dragging, .sheet.snap { transition: none; }
 .sheet-grip { flex: none; height: 22px; display: grid; place-items: center; touch-action: none; cursor: grab; }
 .sheet-grip i { width: 38px; height: 5px; border-radius: 3px; background: var(--fill-2); }
 .sheet-enter-from, .sheet-leave-to { transform: translateY(100%) !important; }

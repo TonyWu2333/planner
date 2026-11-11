@@ -64,7 +64,7 @@ function pick(t) {
 
 <template>
   <Sheet :open="open" max-height="88dvh" @close="emit('close')">
-    <div class="ss" :style="{ '--kb': keyboard.height + 'px' }">
+    <div class="ss" :style="{ '--kb': keyboard.lift + 'px' }">
       <div class="ss-bar">
         <Icon name="search" />
         <input

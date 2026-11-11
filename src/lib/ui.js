@@ -44,14 +44,30 @@ export function handleBack() {
 }
 
 // ---- 键盘高度 ----
-// 手机上：键盘动画一开始（keyboardWillShow）就拿到最终高度，弹窗用位移跟着一起上去；
-// WebView 本身不缩放（capacitor.config 里关掉了 SystemBars 的 insets 处理），避免整页重排。
-// 浏览器里：用 visualViewport 估算。
-export const keyboard = reactive({ height: 0 });
+// height：键盘高度。手机上在键盘动画一开始（keyboardWillShow）就拿到最终高度；浏览器里用 visualViewport 估算。
+// lift：弹窗还需要自己往上抬多少。WebView 有时会跟着键盘缩小（不同手机 / 不同时机表现不一样），
+//       缩掉的那部分不用再抬，否则会抬两遍、浮在半空。
+// snap：WebView 尺寸突变的那一帧，弹窗不要做过渡动画（否则会先错位再滑回来）。
+export const keyboard = reactive({ height: 0, lift: 0, snap: false });
+let baseH = window.innerHeight; // 没有键盘时的页面高度
+function recalc() {
+  keyboard.lift = Math.max(0, keyboard.height - Math.max(0, baseH - window.innerHeight));
+}
+window.addEventListener('resize', () => {
+  // 取没键盘时见过的最大高度：WebView 可能在 keyboardWillShow 之前就先缩了
+  if (!keyboard.height) baseH = Math.max(baseH, window.innerHeight);
+  keyboard.snap = true;
+  recalc();
+  requestAnimationFrame(() => requestAnimationFrame(() => (keyboard.snap = false)));
+});
+function setHeight(h) {
+  keyboard.height = h;
+  recalc();
+}
 if (native) {
-  Keyboard.addListener('keyboardWillShow', (i) => (keyboard.height = i.keyboardHeight));
-  Keyboard.addListener('keyboardWillHide', () => (keyboard.height = 0));
+  Keyboard.addListener('keyboardWillShow', (i) => setHeight(i.keyboardHeight));
+  Keyboard.addListener('keyboardWillHide', () => setHeight(0));
 } else if (window.visualViewport) {
   const vv = window.visualViewport;
-  vv.addEventListener('resize', () => (keyboard.height = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))));
+  vv.addEventListener('resize', () => setHeight(Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))));
 }
