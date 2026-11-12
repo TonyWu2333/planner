@@ -41,3 +41,17 @@ export function repeatLabel(repeat, date) {
     monthly: `每月${d.getDate()}日`,
   }[repeat] ?? '';
 }
+
+// 连续完成了几次：从 d0（今天）往前数发生的日子，碰到没完成的就停。
+// 今天还没做不算断（今天还有机会）；跳过的日子不算断也不计数。
+export function streakOf(t, d0) {
+  let d = d0;
+  if (occursOn(t, d) && !t.doneDates.includes(d)) d = addDays(d, -1);
+  let n = 0;
+  for (let i = 0; i < 800 && d >= t.date; i++, d = addDays(d, -1)) {
+    if (!occursOn(t, d)) continue;
+    if (!t.doneDates.includes(d)) break;
+    n++;
+  }
+  return n;
+}

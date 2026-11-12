@@ -8,6 +8,7 @@ import SearchSheet from './components/SearchSheet.vue';
 import Toast from './components/Toast.vue';
 import CalendarView from './views/CalendarView.vue';
 import QuadrantView from './views/QuadrantView.vue';
+import RoutineView from './views/RoutineView.vue';
 import MeView from './views/MeView.vue';
 import { state, flush } from './lib/store.js';
 import { today } from './lib/date.js';
@@ -17,6 +18,7 @@ import { initReminders, scheduleSync } from './lib/notify.js';
 const TABS = [
   { key: 'calendar', label: '日程', icon: 'calendar' },
   { key: 'quadrant', label: '四象限', icon: 'grid' },
+  { key: 'routine', label: '例行', icon: 'repeat' },
   { key: 'me', label: '我的', icon: 'user' },
 ];
 const tab = ref('calendar');
@@ -60,6 +62,9 @@ onMounted(() => {
       </section>
       <section class="view" :class="{ active: tab === 'quadrant' }">
         <QuadrantView @add="openQuick" @open="openDetail" @search="openSearch" />
+      </section>
+      <section class="view" :class="{ active: tab === 'routine' }">
+        <RoutineView @add="openQuick" @open="openDetail" @search="openSearch" />
       </section>
       <section class="view" :class="{ active: tab === 'me' }">
         <MeView />

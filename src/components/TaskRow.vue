@@ -18,6 +18,9 @@ const props = defineProps({
   swipe: { type: Boolean, default: true },
   postpone: { type: Boolean, default: true }, // 左滑是否带“推迟/跳过”（子任务列表里只留删除）
   hideParent: Boolean, // 已经在父任务里显示时，不再标“↳ 属于谁”
+  hideRepeat: Boolean, // 已经按重复规则分组时，不再标“每天”
+  streak: { type: Number, default: 0 }, // 连续完成次数，≥2 才显示
+  streakUnit: { type: String, default: '天' },
 });
 const emit = defineEmits(['open', 'toggle', 'delete', 'postpone']);
 
@@ -145,9 +148,10 @@ const openRow = { close: null };
       </button>
       <div class="trow-body">
         <div class="trow-title"><span>{{ task.title }}</span></div>
-        <div v-if="(showDate && task.date) || (compact && task.time) || task.note || task.repeat || sub[1] || parentTitle" class="trow-meta">
+        <div v-if="(showDate && task.date) || (compact && task.time) || task.note || (task.repeat && !hideRepeat) || streak > 1 || sub[1] || parentTitle" class="trow-meta">
           <span v-if="showDate && task.date" :class="{ overdue: isOverdue(task) }">{{ dateLabel(task.date) }}</span>
-          <span v-if="task.repeat" class="meta-repeat"><Icon name="repeat" /><span v-if="!compact">{{ repeatLabel(task.repeat, task.date) }}</span></span>
+          <span v-if="streak > 1" class="meta-streak num"><Icon name="flame" />连续 {{ streak }} {{ streakUnit }}</span>
+          <span v-if="task.repeat && !hideRepeat" class="meta-repeat"><Icon name="repeat" /><span v-if="!compact">{{ repeatLabel(task.repeat, task.date) }}</span></span>
           <span v-if="compact && task.time" class="num meta-time"><Icon v-if="task.remind != null" name="bell" />{{ task.time }}</span>
           <span v-if="sub[1]" class="meta-sub" :class="{ all: sub[0] === sub[1] }"><Icon name="checklist" /><span class="num">{{ sub[0] }}/{{ sub[1] }}</span></span>
           <span v-if="task.note" class="meta-note"><Icon name="note" /></span>
@@ -219,6 +223,8 @@ const openRow = { close: null };
 .meta-sub.all { color: var(--success); }
 .meta-parent { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meta-repeat .icon { width: 12px; height: 12px; }
+.meta-streak { display: inline-flex; align-items: center; gap: 2px; color: var(--q2); font-weight: 600; }
+.meta-streak .icon { width: 12px; height: 12px; stroke-width: 2.2; }
 .trow-time { flex: none; display: flex; align-items: center; gap: 3px; font-size: 14px; color: var(--text-2); font-weight: 500; }
 .trow-time .icon { width: 13px; height: 13px; color: var(--text-3); }
 .meta-time { display: inline-flex; align-items: center; gap: 2px; }

@@ -5,7 +5,6 @@ import TaskRow from '../components/TaskRow.vue';
 import { state, toggleDone, updateTask, findTask } from '../lib/store.js';
 import { today, addDays, mondayOf } from '../lib/date.js';
 import { QUADRANTS, quadrantOf, quadrantFlags, byDate } from '../lib/quadrant.js';
-import { nextOccurrence, instanceOf } from '../lib/repeat.js';
 import { haptic, clickGuard, toast } from '../lib/ui.js';
 
 const emit = defineEmits(['open', 'add', 'search']);
@@ -29,13 +28,8 @@ const groups = computed(() => {
   const g = { 1: [], 2: [], 3: [], 4: [] };
   for (const raw of state.tasks) {
     if (raw.parentId) continue; // 子任务跟着父任务走，不单独占位置
-    // 重复任务只显示今天（或下一次）那一个实例
-    let t = raw;
-    if (raw.repeat) {
-      const d = nextOccurrence(raw, today());
-      if (!d) continue;
-      t = instanceOf(raw, d);
-    }
+    if (raw.repeat) continue; // 重复任务放在「例行」页，四象限只放一次性的事
+    const t = raw;
     if ((showDone.value || !t.done) && inRange(t)) g[quadrantOf(t)].push(t);
   }
   for (const k in g) g[k].sort(byDate);

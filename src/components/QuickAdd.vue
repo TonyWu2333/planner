@@ -32,7 +32,8 @@ watch(
   () => props.open,
   (v) => {
     if (!v) return;
-    text.value = note.value = time.value = repeat.value = '';
+    text.value = note.value = time.value = '';
+    repeat.value = props.defaults.repeat ?? '';
     showNote.value = false;
     date.value = props.defaults.date ?? today();
     q.value = props.defaults.q ?? 4;
