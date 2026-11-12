@@ -58,13 +58,11 @@ function up() {
         class="sheet"
         :class="{ dragging, snap: keyboard.snap }"
         :style="{
-          // 键盘高度里已经含了底部手势条，所以加回 --sab（弹窗自己的底部留白），不然键盘上方会多一条空
-          transform: keyboard.lift
-            ? `translate3d(0, calc(${dragY - keyboard.lift}px + var(--sab)), 0)`
-            : dragY
-              ? `translate3d(0, ${dragY}px, 0)`
-              : undefined,
-          maxHeight: `calc(${maxHeight} - ${keyboard.lift}px)`,
+          // 拖动和键盘上抬用独立的 translate 属性，进出场动画用 transform，两者叠加互不打架
+          // （否则弹窗刚打开、键盘同时弹起时，进场动画会盖掉逐帧的键盘位置，结束时猛跳一下）。
+          // lift 不含底部手势条，弹窗自己的底部留白（--sab）正好藏在键盘后面
+          translate: dragY || keyboard.lift ? `0 ${dragY - keyboard.lift}px` : undefined,
+          maxHeight: `calc(${maxHeight} - ${keyboard.cover}px)`,
         }"
         role="dialog"
         @pointerdown="down"
@@ -87,9 +85,9 @@ function up() {
   background: var(--surface); border-radius: var(--r-xl) var(--r-xl) 0 0;
   padding-bottom: var(--sab);
   box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.12);
-  bottom: 0; will-change: transform;
-  /* 和安卓键盘动画差不多的时长和曲线 */
-  transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+  bottom: 0; will-change: transform, translate;
+  /* 键盘动画中由 keyboard.snap 关掉过渡、逐帧跟随；这里只管拖动松手后的回弹等 */
+  transition: translate 0.3s cubic-bezier(0.2, 0, 0, 1);
 }
 .sheet.dragging, .sheet.snap { transition: none; }
 .sheet-grip { flex: none; height: 22px; display: grid; place-items: center; touch-action: none; cursor: grab; }
