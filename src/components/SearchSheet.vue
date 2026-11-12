@@ -3,7 +3,7 @@
 import { ref, computed, watch, nextTick } from 'vue';
 import Sheet from './Sheet.vue';
 import Icon from './Icon.vue';
-import { state } from '../lib/store.js';
+import { state, findTask } from '../lib/store.js';
 import { dateLabel } from '../lib/date.js';
 import { repeatLabel } from '../lib/repeat.js';
 import { quadrantOf, byDate, isOverdue } from '../lib/quadrant.js';
@@ -54,7 +54,11 @@ function noteSnippet(t) {
   return (start ? '…' : '') + note.slice(start, start + 40);
 }
 const sub = (t) =>
-  [t.repeat ? repeatLabel(t.repeat, t.date) : t.date ? dateLabel(t.date) : '无日期', t.time].filter(Boolean).join(' · ');
+  [
+    t.repeat ? repeatLabel(t.repeat, t.date) : t.date ? dateLabel(t.date) : '无日期',
+    t.time,
+    t.parentId && `↳ ${findTask(t.parentId)?.title ?? ''}`,
+  ].filter(Boolean).join(' · ');
 
 function pick(t) {
   input.value?.blur();
@@ -64,14 +68,14 @@ function pick(t) {
 
 <template>
   <Sheet :open="open" max-height="88dvh" @close="emit('close')">
-    <div class="ss" :style="{ '--kb': keyboard.lift + 'px' }">
+    <div class="ss" :style="{ '--kb': keyboard.cover + 'px' }">
       <div class="ss-bar">
         <Icon name="search" />
         <input
           ref="input"
           v-model="q"
           type="search"
-          placeholder="搜索任务标题、备注"
+          placeholder="搜索任务、子任务、备注"
           enterkeyhint="search"
           @keydown.enter="input?.blur()"
         />
@@ -81,7 +85,7 @@ function pick(t) {
       <div class="ss-body scroll">
         <div v-if="!terms.length" class="ss-hint">
           <Icon name="search" />
-          <p>输入关键词，搜索全部任务的标题和备注<br />多个词用空格分开</p>
+          <p>输入关键词，搜索全部任务的标题、子任务和备注<br />多个词用空格分开</p>
         </div>
         <div v-else-if="!total" class="ss-hint">
           <p>没有找到包含「{{ q.trim() }}」的任务</p>

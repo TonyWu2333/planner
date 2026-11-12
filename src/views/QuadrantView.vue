@@ -28,6 +28,7 @@ function inRange(t) {
 const groups = computed(() => {
   const g = { 1: [], 2: [], 3: [], 4: [] };
   for (const raw of state.tasks) {
+    if (raw.parentId) continue; // 子任务跟着父任务走，不单独占位置
     // 重复任务只显示今天（或下一次）那一个实例
     let t = raw;
     if (raw.repeat) {

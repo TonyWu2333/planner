@@ -8,6 +8,7 @@ import Icon from './Icon.vue';
 import { quadrantOf, isOverdue } from '../lib/quadrant.js';
 import { dateLabel } from '../lib/date.js';
 import { repeatLabel } from '../lib/repeat.js';
+import { subProgress, findTask } from '../lib/store.js';
 import { haptic, clickGuard } from '../lib/ui.js';
 
 const props = defineProps({
@@ -15,10 +16,14 @@ const props = defineProps({
   compact: Boolean,
   showDate: Boolean,
   swipe: { type: Boolean, default: true },
+  postpone: { type: Boolean, default: true }, // 左滑是否带“推迟/跳过”（子任务列表里只留删除）
+  hideParent: Boolean, // 已经在父任务里显示时，不再标“↳ 属于谁”
 });
 const emit = defineEmits(['open', 'toggle', 'delete', 'postpone']);
 
 const q = computed(() => quadrantOf(props.task));
+const sub = computed(() => subProgress(props.task, props.task.occ));
+const parentTitle = computed(() => (props.task.parentId && !props.hideParent ? findTask(props.task.parentId)?.title ?? '' : ''));
 const pending = ref(false);
 const done = computed(() => (pending.value ? !props.task.done : props.task.done));
 
@@ -33,8 +38,8 @@ function toggle() {
 }
 
 // ---- 滑动 ----
-// 左滑露出两个独立的圆角按钮：2 × 64 宽 + 两道 8px 间隔
-const ACTIONS_W = 144;
+// 左滑露出独立的圆角按钮：每个 64 宽 + 8px 间隔
+const ACTIONS_W = props.postpone ? 144 : 72;
 const COMPLETE_AT = 76;
 const dx = ref(0);
 const animating = ref(true);
@@ -121,7 +126,7 @@ const openRow = { close: null };
         <span>{{ task.done ? '未完成' : '完成' }}</span>
       </div>
       <div class="under-actions" :style="{ opacity: dx < 0 ? 1 : 0, '--p': Math.min(1, -dx / ACTIONS_W) }">
-        <button class="ua postpone" @click="act('postpone')"><Icon :name="task.repeat ? 'skip' : 'arrow-right'" /><span>{{ task.repeat ? '跳过' : '推迟' }}</span></button>
+        <button v-if="postpone" class="ua postpone" @click="act('postpone')"><Icon :name="task.repeat ? 'skip' : 'arrow-right'" /><span>{{ task.repeat ? '跳过' : '推迟' }}</span></button>
         <button class="ua delete" @click="act('delete')"><Icon name="trash" /><span>删除</span></button>
       </div>
     </div>
@@ -140,11 +145,13 @@ const openRow = { close: null };
       </button>
       <div class="trow-body">
         <div class="trow-title"><span>{{ task.title }}</span></div>
-        <div v-if="(showDate && task.date) || (compact && task.time) || task.note || task.repeat" class="trow-meta">
+        <div v-if="(showDate && task.date) || (compact && task.time) || task.note || task.repeat || sub[1] || parentTitle" class="trow-meta">
           <span v-if="showDate && task.date" :class="{ overdue: isOverdue(task) }">{{ dateLabel(task.date) }}</span>
           <span v-if="task.repeat" class="meta-repeat"><Icon name="repeat" /><span v-if="!compact">{{ repeatLabel(task.repeat, task.date) }}</span></span>
           <span v-if="compact && task.time" class="num meta-time"><Icon v-if="task.remind != null" name="bell" />{{ task.time }}</span>
+          <span v-if="sub[1]" class="meta-sub" :class="{ all: sub[0] === sub[1] }"><Icon name="checklist" /><span class="num">{{ sub[0] }}/{{ sub[1] }}</span></span>
           <span v-if="task.note" class="meta-note"><Icon name="note" /></span>
+          <span v-if="parentTitle" class="meta-parent">↳ {{ parentTitle }}</span>
         </div>
       </div>
       <div v-if="!compact && task.time" class="trow-time num"><Icon v-if="task.remind != null && !task.done" name="bell" />{{ task.time }}</div>
@@ -207,7 +214,10 @@ const openRow = { close: null };
 .trow-meta { display: flex; align-items: center; gap: 8px; margin-top: 2px; font-size: 12.5px; color: var(--text-3); }
 .trow-meta .overdue { color: var(--danger); font-weight: 600; }
 .meta-note .icon { width: 13px; height: 13px; display: block; }
-.meta-repeat { display: inline-flex; align-items: center; gap: 3px; }
+.meta-repeat, .meta-sub { display: inline-flex; align-items: center; gap: 3px; }
+.meta-sub .icon { width: 12px; height: 12px; }
+.meta-sub.all { color: var(--success); }
+.meta-parent { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meta-repeat .icon { width: 12px; height: 12px; }
 .trow-time { flex: none; display: flex; align-items: center; gap: 3px; font-size: 14px; color: var(--text-2); font-weight: 500; }
 .trow-time .icon { width: 13px; height: 13px; color: var(--text-3); }

@@ -5,7 +5,7 @@ import MonthGrid from '../components/MonthGrid.vue';
 import TaskRow from '../components/TaskRow.vue';
 import EmptyArt from '../components/EmptyArt.vue';
 import MonthPicker from '../components/MonthPicker.vue';
-import { state, toggleDone, removeTask, updateTask, tasksOn, skipOccurrence } from '../lib/store.js';
+import { state, toggleDone, removeTask, updateTask, tasksOn, skipOccurrence, childrenOf } from '../lib/store.js';
 import { occursOn } from '../lib/repeat.js';
 import { today, addDays, parseYmd, ymd, diffDays, dayInfo, dateLabel, lunarYearLabel, WEEKDAY, mondayOf } from '../lib/date.js';
 import { quadrantOf, byTime, byDate } from '../lib/quadrant.js';
@@ -253,8 +253,10 @@ const progress = computed(() => (dayTasks.value.length ? doneTasks.value.length 
 
 // ---- 任务操作 ----
 function onDelete(t) {
+  const kids = childrenOf(t.id).length;
   const undo = removeTask(t.id);
-  toast(t.repeat ? `已删除「${t.title}」及以后的重复` : `已删除「${t.title}」`, { action: undo });
+  const extra = [t.repeat && '以后的重复', kids && `${kids} 个子任务`].filter(Boolean).join('和');
+  toast(extra ? `已删除「${t.title}」及${extra}` : `已删除「${t.title}」`, { action: undo });
 }
 function onPostpone(t) {
   if (t.repeat) {

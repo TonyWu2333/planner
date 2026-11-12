@@ -7,7 +7,10 @@ import { today } from './date.js';
 // { id, title, note, date: 'YYYY-MM-DD' | '', time: 'HH:MM' | '',
 //   important, urgent, done, createdAt, doneAt,
 //   repeat: '' | 'daily' | 'weekdays' | 'weekly' | 'monthly', doneDates: [], skipDates: [],  （见 repeat.js）
-//   remind: null | 提前几分钟（0 = 准时；只有设了时间才生效，见 notify.js） }
+//   remind: null | 提前几分钟（0 = 准时；只有设了时间才生效，见 notify.js）,
+//   parentId: '' | 父任务 id }
+// 子任务就是一条完整的任务（能设日期、时间、提醒、象限、备注），只是多了 parentId；只有一层，子任务不能重复。
+// 父任务是重复任务、子任务又没有自己的日期时，子任务按父任务的那一天打勾（用 doneDates）。
 
 export const state = reactive({
   ready: false,
@@ -36,7 +39,26 @@ export function normalizeTask(t) {
     skipDates: dateList(t.skipDates),
     // 老数据没有这个字段：有时间的默认准时提醒
     remind: Number.isInteger(t.remind) && t.remind >= 0 ? t.remind : t.remind === undefined && t.time ? 0 : null,
+    parentId: t.parentId ? String(t.parentId) : '',
   };
+}
+// 旧格式：子任务是父任务里的 subtasks 清单 → 拆成独立的子任务（继承父任务的象限）
+function migrate(raw) {
+  return raw.flatMap((t) => [
+    t,
+    ...(Array.isArray(t.subtasks) ? t.subtasks : [])
+      .filter((x) => x && String(x.title ?? '').trim())
+      .map((x, i) => ({
+        id: x.id,
+        title: x.title,
+        done: x.done,
+        doneDates: x.doneDates,
+        parentId: t.id,
+        important: t.important,
+        urgent: t.urgent,
+        createdAt: (Number(t.createdAt) || Date.now()) + i + 1,
+      })),
+  ]);
 }
 const dateList = (a) => (Array.isArray(a) ? a.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)) : []);
 
@@ -49,9 +71,10 @@ export function flush() {
 
 export async function initStore() {
   const [data, settings] = await Promise.all([load(), loadSettings()]);
-  state.tasks = data.tasks.map(normalizeTask);
+  state.tasks = migrate(data.tasks).map(normalizeTask);
   Object.assign(state.settings, settings);
   state.ready = true;
+  if (data.tasks.some((t) => Array.isArray(t.subtasks))) flush(); // 旧格式转换后马上存一次
   watch(() => state.tasks, () => {
     clearTimeout(timer);
     timer = setTimeout(flush, 250);
@@ -102,14 +125,45 @@ export function skipOccurrence(id, occ) {
   };
 }
 
-// 返回一个“撤销”函数
+// ---- 子任务 ----
+export const childrenOf = (id) => state.tasks.filter((t) => t.parentId === id).sort((a, b) => a.createdAt - b.createdAt);
+// 父任务是重复任务、子任务没有自己的日期：按父任务的那一天（occ）打勾
+const perOcc = (parent, child, occ) => !!(parent?.repeat && occ && !child.date);
+export const subDone = (parent, child, occ) => (perOcc(parent, child, occ) ? child.doneDates.includes(occ) : child.done);
+export function subProgress(parent, occ) {
+  const kids = childrenOf(parent.id);
+  return [kids.filter((c) => subDone(parent, c, occ)).length, kids.length];
+}
+// fields：{ title, date, time }；象限默认跟父任务一样
+export function addSubtask(parentId, fields) {
+  const p = findTask(parentId);
+  if (!p || !fields.title?.trim()) return null;
+  return addTask({ ...fields, parentId, important: p.important, urgent: p.urgent });
+}
+// 返回切换后是否全部完成
+export function toggleSubtask(parentId, childId, occ) {
+  const p = findTask(parentId);
+  const c = findTask(childId);
+  if (!p || !c) return false;
+  if (perOcc(p, c, occ)) {
+    const i = c.doneDates.indexOf(occ);
+    if (i >= 0) c.doneDates.splice(i, 1);
+    else c.doneDates.push(occ);
+  } else updateTask(c.id, { done: !c.done });
+  const [d, n] = subProgress(p, occ);
+  return d === n;
+}
+
+// 删除任务（连同它的子任务），返回一个“撤销”函数
 export function removeTask(id) {
-  const index = state.tasks.findIndex((t) => t.id === id);
-  if (index < 0) return () => {};
-  const [task] = state.tasks.splice(index, 1);
-  return () => state.tasks.splice(Math.min(index, state.tasks.length), 0, task);
+  const removed = [];
+  for (let i = state.tasks.length - 1; i >= 0; i--) {
+    const t = state.tasks[i];
+    if (t.id === id || t.parentId === id) removed.unshift([i, ...state.tasks.splice(i, 1)]);
+  }
+  return () => removed.forEach(([i, t]) => state.tasks.splice(Math.min(i, state.tasks.length), 0, t));
 }
 
 export function replaceAll(tasks) {
-  state.tasks = tasks.map(normalizeTask);
+  state.tasks = migrate(tasks).map(normalizeTask);
 }
