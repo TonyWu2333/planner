@@ -1,12 +1,12 @@
 import { reactive, watch } from 'vue';
 import { load, save, loadSettings, saveSettings } from './storage.js';
-import { REPEATS, occursOn, instanceOf } from './repeat.js';
+import { normalizeRepeat, occursOn, instanceOf } from './repeat.js';
 import { today } from './date.js';
 
 // 任务结构：
 // { id, title, note, date: 'YYYY-MM-DD' | '', time: 'HH:MM' | '',
 //   important, urgent, done, createdAt, doneAt,
-//   repeat: '' | 'daily' | 'weekdays' | 'weekly' | 'monthly', doneDates: [], skipDates: [],  （见 repeat.js）
+//   repeat: '' | 规则字符串（如 'd1' 'w1:135' 'm1~2026-12-31'）, doneDates: [], skipDates: [],  （见 repeat.js）
 //   remind: null | 提前几分钟（0 = 准时；只有设了时间才生效，见 notify.js）,
 //   parentId: '' | 父任务 id }
 // 子任务就是一条完整的任务（能设日期、时间、提醒、象限、备注），只是多了 parentId；只有一层，子任务不能重复。
@@ -34,7 +34,7 @@ export function normalizeTask(t) {
     done: !!t.done,
     createdAt: Number(t.createdAt) || Date.now(),
     doneAt: t.doneAt ?? null,
-    repeat: REPEATS.includes(t.repeat) ? t.repeat : '',
+    repeat: normalizeRepeat(t.repeat, t.date),
     doneDates: dateList(t.doneDates),
     skipDates: dateList(t.skipDates),
     // 老数据没有这个字段：有时间的默认准时提醒

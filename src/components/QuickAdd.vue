@@ -84,13 +84,14 @@ function setTime(v) {
   panel.value = null;
   input.value?.focus();
 }
-function setRepeat(v) {
+function setRepeat(v, done = true) {
   repeat.value = v;
   manual.repeat = true;
   if (v && !effDate.value) {
     date.value = today();
     manual.date = true;
   }
+  if (!done) return; // 自定义规则还在调，面板留着
   panel.value = null;
   input.value?.focus();
 }

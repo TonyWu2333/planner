@@ -2,6 +2,7 @@
 //   "明天下午3点开会" → { title: '开会', date: 明天, time: '15:00' }
 //   "周五 交周报" / "下周一 9:30 例会" / "11月20日 体检" / "今晚8点半 跑步"
 //   重复："每天 背单词" / "每周五晚上8点 羽毛球" / "工作日 9点 站会" / "每月15号 还信用卡"
+//         "每周一三五 健身" / "隔周五 周会" / "每3天 浇花" / "每年5月20日 纪念日" / "每天 背单词 到12月31日"
 import { today, addDays, parseYmd, ymd, mondayOf, pad } from './date.js';
 
 const CN = { 零: 0, 〇: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
@@ -46,20 +47,61 @@ const nextWeekday = (w) => {
   const target = addDays(mondayOf(today()), w - 1);
   return target < today() ? addDays(target, 7) : target;
 };
+// 下一个“M月D日”（含今天）
+function nextMonthDay(m, d) {
+  const t = new Date();
+  const x = new Date(t.getFullYear(), m - 1, d);
+  if (x.getMonth() !== m - 1) return '';
+  if (ymd(x) < today()) x.setFullYear(x.getFullYear() + 1);
+  return ymd(x);
+}
+// "每" "每2" "每两" "每隔一" "隔" → 间隔几（“每隔一天”是隔一天做一次，也就是每 2 天）
+function every(m, prefix) {
+  if (prefix === '隔') return 2;
+  const n = m ? cnNum(m) : 1;
+  if (!(n >= 1 && n <= 99)) return NaN;
+  return prefix?.includes('隔') ? n + 1 : n;
+}
+const WDS = '[一二三四五六日天1-7]';
 const REPEAT_RULES = [
-  [/每天|每日|天天/, () => ['daily', today()]],
-  [/(?:每个?)?工作日/, () => ['weekdays', today()]],
-  [/每个?(?:周|星期|礼拜)([一二三四五六日天1-7])/, (m) => ['weekly', nextWeekday(WD[m[1]])]],
-  [/每个?(?:周|星期|礼拜)/, () => ['weekly', today()]],
-  [new RegExp(`每个?月${NUM}[日号]`), (m) => {
-    const t = parseYmd(today());
-    const n = cnNum(m[1]);
-    if (!(n >= 1 && n <= 31)) return null;
-    const d = new Date(t.getFullYear(), t.getMonth(), n);
-    if (ymd(d) < today() || d.getDate() !== n) d.setMonth(d.getMonth() + 1, n);
-    return ['monthly', ymd(d)];
+  [new RegExp(`(每隔|每)${NUM}个?天`), (m) => {
+    const n = every(m[2], m[1]);
+    return n ? [`d${n}`, today()] : null;
   }],
+  [/隔天/, () => ['d2', today()]],
+  [/每天|每日|天天/, () => ['d1', today()]],
+  [/(?:每个?)?工作日/, () => ['w1:12345', today()]],
+  [/每个?周末/, () => ['w1:06', [nextWeekday(6), nextWeekday(7)].sort()[0]]],
+  // 每周一三五 / 每周一、周三 / 每两周五 / 隔周周五 / 每隔一周的周二
+  [new RegExp(`(每隔|每|隔)${NUM}?个?(?:周|星期|礼拜)的?(?:周|星期|礼拜)?(${WDS}(?:[、,，和及与]?(?:周|星期|礼拜)?${WDS})*)`), (m) => {
+    const n = every(m[2], m[1]);
+    const ws = [...new Set(m[3].match(new RegExp(WDS, 'g')).map((c) => WD[c]))];
+    if (!n) return null;
+    return [`w${n}:${ws.map((w) => w % 7).join('')}`, ws.map(nextWeekday).sort()[0]];
+  }],
+  [new RegExp(`(每隔|每|隔)${NUM}?个?(?:周|星期|礼拜)`), (m) => {
+    const n = every(m[2], m[1]);
+    return n ? [`w${n}:${parseYmd(today()).getDay()}`, today()] : null;
+  }],
+  [new RegExp(`(每隔|每)${NUM}?个?月的?${NUM}[日号]`), (m) => {
+    const n = every(m[2], m[1]);
+    const day = cnNum(m[3]);
+    if (!n || !(day >= 1 && day <= 31)) return null;
+    const t = parseYmd(today());
+    const d = new Date(t.getFullYear(), t.getMonth(), day);
+    if (ymd(d) < today() || d.getDate() !== day) d.setMonth(d.getMonth() + 1, day);
+    return [`m${n}`, ymd(d)];
+  }],
+  [new RegExp(`(每隔|每)${NUM}?年的?${NUM}月${NUM}[日号]`), (m) => {
+    const n = every(m[2], m[1]);
+    const d = nextMonthDay(cnNum(m[3]), cnNum(m[4]));
+    return n && d ? [`y${n}`, d] : null;
+  }],
+  [/每个?月/, () => ['m1', today()]],
+  [/每年/, () => ['y1', today()]],
 ];
+// 重复的结束日期："到12月31日" "直到下个月3号为止" 只认带月日的写法
+const UNTIL_RE = new RegExp(`(?:直到|截止到?|到|至)${NUM}月${NUM}[日号]?(?:为止|结束)?`);
 
 const PERIOD = '(凌晨|早上|早晨|上午|中午|下午|傍晚|晚上|今晚|明晚|今早|明早|晚|早)?';
 const TIME_RULES = [
@@ -95,6 +137,13 @@ export function parseInput(text) {
       [repeat, date] = r;
       hits.push(m[0]);
       rest = rest.replace(m[0], ' ');
+      const u = rest.match(UNTIL_RE);
+      const until = u && nextMonthDay(cnNum(u[1]), cnNum(u[2]));
+      if (until && until >= date) {
+        repeat += '~' + until;
+        hits.push(u[0]);
+        rest = rest.replace(u[0], ' ');
+      }
       break;
     }
   }
@@ -129,6 +178,6 @@ export function parseInput(text) {
 
 // 小测试：node -e "import('./src/lib/parse.js').then(m=>m.selfTest())"
 export function selfTest() {
-  for (const s of ['明天下午3点开会', '周五 交周报', '下周一 9:30 例会', '11月20日体检', '今晚8点半跑步', '3号交房租', '买牛奶', '中午12点 吃饭', '后天上午十点一刻 面试', '每天 背单词', '每周五晚上八点 羽毛球', '每个工作日9:30站会', '每月15号还信用卡', '每周 大扫除'])
+  for (const s of ['明天下午3点开会', '周五 交周报', '下周一 9:30 例会', '11月20日体检', '今晚8点半跑步', '3号交房租', '买牛奶', '中午12点 吃饭', '后天上午十点一刻 面试', '每天 背单词', '每周五晚上八点 羽毛球', '每个工作日9:30站会', '每月15号还信用卡', '每周 大扫除', '每周一三五 健身', '每周一、周三 晚上7点 游泳', '隔周五 周会', '每两周的周二 汇报', '每隔一天 跑步', '每3天 浇花', '每周末 打扫', '每年5月20日 纪念日', '每两个月的1号 理发', '每天 背单词 到12月31日', '每月 总结'])
     console.log(s.padEnd(16), JSON.stringify(parseInput(s)));
 }

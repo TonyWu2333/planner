@@ -134,9 +134,9 @@ function setRemind(v) {
 function openRemind() {
   togglePanel(t.value.time ? 'remind' : 'time'); // 没设时间就先去选时间
 }
-function setRepeat(v) {
+function setRepeat(v, done = true) {
   updateTask(t.value.id, v && !t.value.date ? { repeat: v, date: today() } : { repeat: v });
-  panel.value = null;
+  if (done) panel.value = null; // 自定义规则还在调，面板留着
 }
 function setQ(n) {
   updateTask(t.value.id, quadrantFlags(n));
@@ -255,7 +255,7 @@ const fmt = (ms) => {
         <button v-if="!t.parentId" class="prop" @click="togglePanel('repeat')">
           <span class="prop-ico"><Icon name="repeat" /></span>
           <span class="prop-label">重复</span>
-          <span class="prop-val" :class="{ set: t.repeat }">{{ t.repeat ? repeatLabel(t.repeat, t.date) : '不重复' }}</span>
+          <span class="prop-val" :class="{ set: t.repeat }">{{ t.repeat ? repeatLabel(t.repeat, t.date, true) : '不重复' }}</span>
           <Icon name="chevron-right" class="prop-arrow" :class="{ open: panel === 'repeat' }" />
         </button>
         <Transition name="panel">
@@ -346,7 +346,7 @@ const fmt = (ms) => {
 .prop-ico { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--surface); color: var(--text-2); }
 .prop-ico .icon { width: 18px; height: 18px; }
 .prop-label { font-size: 15px; }
-.prop-val { flex: 1; text-align: right; font-size: 14.5px; color: var(--text-3); }
+.prop-val { flex: 1; min-width: 0; text-align: right; font-size: 14.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .prop-val.set { color: var(--accent); font-weight: 550; }
 .prop-val.overdue { color: var(--danger); }
 .prop-arrow { width: 16px; height: 16px; color: var(--text-3); transition: transform .3s var(--ease); }

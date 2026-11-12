@@ -5,14 +5,15 @@ import MonthGrid from './MonthGrid.vue';
 import { today, addDays, mondayOf, parseYmd } from '../lib/date.js';
 import { haptic } from '../lib/ui.js';
 
-const props = defineProps({ modelValue: String });
+// options：顶上一排快捷按钮，默认 今天 / 明天 / 下周一 / 无日期
+const props = defineProps({ modelValue: String, options: Array });
 const emit = defineEmits(['update:modelValue']);
 
 const base = parseYmd(props.modelValue || today());
 const year = ref(base.getFullYear());
 const month = ref(base.getMonth());
 
-const quick = computed(() => [
+const quick = computed(() => props.options ?? [
   { label: '今天', icon: 'sun', value: today() },
   { label: '明天', icon: 'sunrise', value: addDays(today(), 1) },
   { label: '下周一', icon: 'week', value: addDays(mondayOf(today()), 7) },

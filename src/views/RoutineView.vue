@@ -7,13 +7,28 @@ import TaskRow from '../components/TaskRow.vue';
 import EmptyArt from '../components/EmptyArt.vue';
 import { state, toggleDone, removeTask, skipOccurrence, childrenOf } from '../lib/store.js';
 import { today } from '../lib/date.js';
-import { REPEATS, occursOn, nextOccurrence, instanceOf, streakOf } from '../lib/repeat.js';
+import { occursOn, nextOccurrence, instanceOf, streakOf, repeatGroup, parseRule } from '../lib/repeat.js';
 import { toast } from '../lib/ui.js';
 
 const emit = defineEmits(['open', 'add', 'search']);
 
-const GROUP = { daily: '每天', weekdays: '工作日', weekly: '每周', monthly: '每月' };
-const UNIT = { daily: '天', weekdays: '天', weekly: '周', monthly: '个月' };
+const GROUPS = [
+  ['daily', '每天'],
+  ['interval', '每隔几天'],
+  ['weekly', '每周'],
+  ['monthly', '每月'],
+  ['yearly', '每年'],
+  ['ended', '已结束'],
+];
+// 连续完成的单位：每天 → 天，每周只有一天 → 周，每月 → 个月，其他按“次”
+function unitOf(t) {
+  const r = parseRule(t.repeat);
+  if (repeatGroup(t.repeat) === 'daily') return '天';
+  if (r.freq === 'w' && r.n === 1 && r.days.length === 1) return '周';
+  if (r.freq === 'm' && r.n === 1) return '个月';
+  if (r.freq === 'y' && r.n === 1) return '年';
+  return '次';
+}
 
 const routines = computed(() => state.tasks.filter((t) => t.repeat && !t.parentId));
 
@@ -23,13 +38,19 @@ const progress = computed(() => (todayList.value.length ? doneToday.value / toda
 
 const groups = computed(() => {
   const d0 = today();
-  return REPEATS.map((r) => {
-    const items = routines.value
-      .filter((t) => t.repeat === r)
-      .map((t) => {
-        const occ = occursOn(t, d0) ? d0 : nextOccurrence(t, d0);
-        return { task: occ ? instanceOf(t, occ) : { ...t, occ: '' }, isToday: occ === d0, streak: streakOf(t, d0) };
-      })
+  const all = routines.value.map((t) => {
+    const occ = occursOn(t, d0) ? d0 : nextOccurrence(t, d0);
+    return {
+      task: occ ? instanceOf(t, occ) : { ...t, occ: '' },
+      group: occ ? repeatGroup(t.repeat) : 'ended', // 过了结束日期、以后不会再发生
+      isToday: occ === d0,
+      streak: streakOf(t, d0),
+      unit: unitOf(t),
+    };
+  });
+  return GROUPS.map(([key, label]) => {
+    const items = all
+      .filter((it) => it.group === key)
       // 今天要做的在前，再按时间、创建先后
       .sort(
         (a, b) =>
@@ -37,7 +58,7 @@ const groups = computed(() => {
           (a.task.time || '99').localeCompare(b.task.time || '99') ||
           a.task.createdAt - b.task.createdAt,
       );
-    return { key: r, label: GROUP[r], unit: UNIT[r], items };
+    return { key, label, items };
   }).filter((g) => g.items.length);
 });
 
@@ -85,10 +106,10 @@ function onSkip(t) {
             :key="it.task.id"
             :task="it.task"
             :class="{ later: !it.isToday }"
-            :show-date="!it.isToday"
-            :hide-repeat="g.key === 'daily' || g.key === 'weekdays'"
+            :show-date="!it.isToday && !!it.task.occ"
+            :hide-repeat="g.key === 'daily'"
             :streak="it.streak"
-            :streak-unit="g.unit"
+            :streak-unit="it.unit"
             @toggle="toggleDone(it.task.id, it.task.occ)"
             @open="emit('open', it.task.id, it.task.occ)"
             @delete="onDelete(it.task)"
@@ -102,12 +123,12 @@ function onSkip(t) {
       <EmptyArt />
       <b>还没有例行任务</b>
       <p>每天、每周都要做的事放在这里打卡<br />试试输入「每天 跑步」或「每周五晚上8点 周会」</p>
-      <button class="empty-btn press" @click="emit('add', { repeat: 'daily' })"><Icon name="plus" />添加例行</button>
+      <button class="empty-btn press" @click="emit('add', { repeat: 'd1' })"><Icon name="plus" />添加例行</button>
     </div>
 
     <div class="rt-pad" />
   </div>
-    <button class="fab" aria-label="新建例行" @click="emit('add', { repeat: 'daily' })"><Icon name="plus" /></button>
+    <button class="fab" aria-label="新建例行" @click="emit('add', { repeat: 'd1' })"><Icon name="plus" /></button>
   </div>
 </template>
 
