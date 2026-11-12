@@ -1,4 +1,4 @@
-import { reactive } from 'vue';
+import { reactive, watchEffect } from 'vue';
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 
@@ -51,6 +51,17 @@ export function handleBack() {
 // cover：键盘一共挡住了页面多少高度（= lift + 平移量），弹窗的最大高度要扣掉它。
 // snap：键盘动画进行中、或页面尺寸突变时，弹窗不做 CSS 过渡，直接跟到位。
 export const keyboard = reactive({ height: 0, lift: 0, cover: 0, snap: false });
+// 上抬量和 snap 同时写到根元素上（--kb-lift、.kb-snap），弹窗用它们来定位。
+// 原因：弹窗一关闭就进入离场动画，Vue 不再更新它身上的绑定，上抬量会停在键盘还在时的值，
+// 弹窗从半空慢慢往下滑、比键盘慢半拍；CSS 变量照样生效，关闭时也能跟着键盘一起落下。
+const root = document.documentElement;
+watchEffect(
+  () => {
+    root.style.setProperty('--kb-lift', keyboard.lift + 'px');
+    root.classList.toggle('kb-snap', keyboard.snap);
+  },
+  { flush: 'sync' },
+);
 const vv = window.visualViewport;
 let baseH = window.innerHeight; // 没有键盘时的页面高度
 let lastKey = '';
