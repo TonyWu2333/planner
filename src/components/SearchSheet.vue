@@ -55,6 +55,7 @@ function noteSnippet(t) {
 }
 const sub = (t) =>
   [
+    t.dropped && '已放弃',
     t.repeat ? repeatLabel(t.repeat, t.date) : t.date ? dateLabel(t.date) : '无日期',
     t.time,
     t.parentId && `↳ ${findTask(t.parentId)?.title ?? ''}`,

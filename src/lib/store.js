@@ -31,7 +31,10 @@ export function normalizeTask(t) {
     time: /^\d{2}:\d{2}$/.test(t.time) ? t.time : '',
     important: !!t.important,
     urgent: !!t.urgent,
-    done: !!t.done,
+    // 放弃：不做了但留着记录。放弃的任务同时算 done（这样所有“未完成”列表、逾期、提醒都自动排除它），
+    // 统计完成数时再用 dropped 区分开
+    done: !!t.done || !!t.dropped,
+    dropped: !!t.dropped,
     createdAt: Number(t.createdAt) || Date.now(),
     doneAt: t.doneAt ?? null,
     repeat: normalizeRepeat(t.repeat, t.date),
@@ -101,8 +104,20 @@ export function updateTask(id, patch) {
   const t = findTask(id);
   if (!t) return;
   if ('done' in patch && patch.done !== t.done) t.doneAt = patch.done ? Date.now() : null;
+  if (patch.done === false) patch = { ...patch, dropped: false }; // 取消完成 = 也取消放弃，回到待办
   Object.assign(t, patch);
 }
+
+// 放弃（不做了，但不删）。返回撤销函数
+export function dropTask(id) {
+  const t = findTask(id);
+  if (!t || t.repeat) return () => {};
+  const before = { done: t.done, dropped: t.dropped, doneAt: t.doneAt };
+  Object.assign(t, { done: true, dropped: true, doneAt: Date.now() });
+  return () => Object.assign(t, before);
+}
+// 统计“完成了几项”时不算放弃的
+export const countsAsDone = (t) => t.done && !t.dropped;
 
 // occ：重复任务的某一天，只切换那一天的完成状态
 export function toggleDone(id, occ) {
@@ -131,7 +146,7 @@ export const childrenOf = (id) => state.tasks.filter((t) => t.parentId === id).s
 const perOcc = (parent, child, occ) => !!(parent?.repeat && occ && !child.date);
 export const subDone = (parent, child, occ) => (perOcc(parent, child, occ) ? child.doneDates.includes(occ) : child.done);
 export function subProgress(parent, occ) {
-  const kids = childrenOf(parent.id);
+  const kids = childrenOf(parent.id).filter((c) => !c.dropped); // 放弃的子任务不算进进度
   return [kids.filter((c) => subDone(parent, c, occ)).length, kids.length];
 }
 // fields：{ title, date, time }；象限默认跟父任务一样

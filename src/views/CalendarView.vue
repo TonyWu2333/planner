@@ -5,7 +5,7 @@ import MonthGrid from '../components/MonthGrid.vue';
 import TaskRow from '../components/TaskRow.vue';
 import EmptyArt from '../components/EmptyArt.vue';
 import MonthPicker from '../components/MonthPicker.vue';
-import { state, toggleDone, removeTask, updateTask, tasksOn, skipOccurrence, childrenOf } from '../lib/store.js';
+import { state, toggleDone, removeTask, updateTask, tasksOn, skipOccurrence, childrenOf, dropTask, countsAsDone } from '../lib/store.js';
 import { occursOn } from '../lib/repeat.js';
 import { today, addDays, parseYmd, ymd, diffDays, dayInfo, dateLabel, lunarYearLabel, WEEKDAY, mondayOf } from '../lib/date.js';
 import { quadrantOf, byTime, byDate } from '../lib/quadrant.js';
@@ -249,7 +249,15 @@ const todayCol = computed(() => {
   const visible = mode.value === 'week' ? mondayOf(t) === mondayOf(selected.value) : t.slice(0, 7) === selected.value.slice(0, 7);
   return visible ? (parseYmd(t).getDay() + 6) % 7 : -1;
 });
-const progress = computed(() => (dayTasks.value.length ? doneTasks.value.length / dayTasks.value.length : 0));
+// 进度环不算放弃的任务
+const ringTotal = computed(() => dayTasks.value.filter((t) => !t.dropped).length);
+const ringDone = computed(() => dayTasks.value.filter(countsAsDone).length);
+const progress = computed(() => (ringTotal.value ? ringDone.value / ringTotal.value : 0));
+// “已完成 3 · 已放弃 1”，为 0 的那项不写
+const doneHead = computed(() => {
+  const dropped = doneTasks.value.length - ringDone.value;
+  return [ringDone.value && `已完成 ${ringDone.value}`, dropped && `已放弃 ${dropped}`].filter(Boolean).join(' · ');
+});
 
 // ---- 任务操作 ----
 function onDelete(t) {
@@ -257,6 +265,10 @@ function onDelete(t) {
   const undo = removeTask(t.id);
   const extra = [t.repeat && '以后的重复', kids && `${kids} 个子任务`].filter(Boolean).join('和');
   toast(extra ? `已删除「${t.title}」及${extra}` : `已删除「${t.title}」`, { action: undo });
+}
+function onDrop(t) {
+  const undo = dropTask(t.id);
+  toast(`已放弃「${t.title}」`, { action: undo });
 }
 function onPostpone(t) {
   if (t.repeat) {
@@ -357,12 +369,12 @@ defineExpose({ selected });
           </h2>
           <p>{{ heading.sub }}</p>
         </div>
-        <div v-if="dayTasks.length" class="ring" :title="`${doneTasks.length}/${dayTasks.length}`">
+        <div v-if="ringTotal" class="ring" :title="`${ringDone}/${ringTotal}`">
           <svg viewBox="0 0 36 36">
             <circle cx="18" cy="18" r="15" class="ring-bg" />
             <circle cx="18" cy="18" r="15" class="ring-fg" :style="{ strokeDashoffset: 94.25 * (1 - progress) }" />
           </svg>
-          <span class="num">{{ doneTasks.length }}/{{ dayTasks.length }}</span>
+          <span class="num">{{ ringDone }}/{{ ringTotal }}</span>
         </div>
       </div>
 
@@ -382,6 +394,7 @@ defineExpose({ selected });
             @open="emit('open', t.id, t.occ)"
             @delete="onDelete(t)"
             @postpone="onPostpone(t)"
+            @drop="onDrop(t)"
           />
         </TransitionGroup>
       </section>
@@ -397,13 +410,14 @@ defineExpose({ selected });
             @open="emit('open', t.id, t.occ)"
             @delete="onDelete(t)"
             @postpone="onPostpone(t)"
+            @drop="onDrop(t)"
           />
         </TransitionGroup>
       </section>
 
       <section v-if="doneTasks.length" class="group">
         <button class="group-head toggle" @click="showDone = !showDone">
-          <span>已完成 · {{ doneTasks.length }}</span>
+          <span>{{ doneHead }}</span>
           <Icon name="chevron-down" :class="{ up: showDone }" />
         </button>
         <Transition name="collapse">
@@ -416,6 +430,7 @@ defineExpose({ selected });
               @open="emit('open', t.id, t.occ)"
               @delete="onDelete(t)"
               @postpone="onPostpone(t)"
+              @drop="onDrop(t)"
             />
           </TransitionGroup>
         </Transition>

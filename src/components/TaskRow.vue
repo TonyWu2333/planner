@@ -1,7 +1,7 @@
 <script setup>
 // 一条任务：
 //  · 点圆圈：勾选动画播完再真正完成（这样列表重排不会打断动画）
-//  · 右滑：完成 / 取消完成；左滑：露出“推迟”“删除”
+//  · 右滑：完成 / 取消完成（放弃的任务是“恢复”）；左滑：露出“推迟”“放弃”“删除”
 //  · compact：四象限卡片里的紧凑样式，不支持滑动（长按拖拽由父级处理）
 import { computed, ref } from 'vue';
 import Icon from './Icon.vue';
@@ -22,7 +22,7 @@ const props = defineProps({
   streak: { type: Number, default: 0 }, // 连续完成次数，≥2 才显示
   streakUnit: { type: String, default: '天' },
 });
-const emit = defineEmits(['open', 'toggle', 'delete', 'postpone']);
+const emit = defineEmits(['open', 'toggle', 'delete', 'postpone', 'drop']);
 
 const q = computed(() => quadrantOf(props.task));
 const sub = computed(() => subProgress(props.task, props.task.occ));
@@ -42,7 +42,12 @@ function toggle() {
 
 // ---- 滑动 ----
 // 左滑露出独立的圆角按钮：每个 64 宽 + 8px 间隔
-const ACTIONS_W = props.postpone ? 144 : 72;
+// “放弃”只给还没完成的一次性任务（重复任务用“跳过”）
+const canDrop = computed(() => props.postpone && !props.task.repeat && !props.task.done);
+const actionsW = computed(() => {
+  const n = 1 + (props.postpone ? 1 : 0) + (canDrop.value ? 1 : 0);
+  return n * 64 + (n - 1) * 8;
+});
 const COMPLETE_AT = 76;
 const dx = ref(0);
 const animating = ref(true);
@@ -75,7 +80,7 @@ function onMove(e) {
   }
   if (s.dir !== 'h') return;
   const v = s.base + mx;
-  dx.value = v >= 0 ? rubber(v, 110) : -rubber(-v, ACTIONS_W);
+  dx.value = v >= 0 ? rubber(v, 110) : -rubber(-v, actionsW.value);
   const over = dx.value > COMPLETE_AT;
   if (over !== passedThreshold) {
     passedThreshold = over;
@@ -92,8 +97,8 @@ function onUp() {
   if (dx.value > COMPLETE_AT) {
     dx.value = 0;
     toggle();
-  } else if (dx.value < -ACTIONS_W / 2.4) {
-    dx.value = -ACTIONS_W;
+  } else if (dx.value < -actionsW.value / 2.4) {
+    dx.value = -actionsW.value;
     openRow.close = () => (dx.value = 0);
   } else dx.value = 0;
 }
@@ -122,14 +127,15 @@ const openRow = { close: null };
 </script>
 
 <template>
-  <div class="trow" :class="[`q${q}`, { done, compact, pending }]" :data-task-id="task.id">
+  <div class="trow" :class="[`q${q}`, { done, compact, pending, dropped: task.dropped && !pending }]" :data-task-id="task.id">
     <div v-if="swipe" class="trow-under">
       <div class="under-done" :class="{ hot: dx > COMPLETE_AT }" :style="{ opacity: dx > 0 ? 1 : 0 }">
         <Icon :name="task.done ? 'x' : 'check'" />
-        <span>{{ task.done ? '未完成' : '完成' }}</span>
+        <span>{{ task.dropped ? '恢复' : task.done ? '未完成' : '完成' }}</span>
       </div>
-      <div class="under-actions" :style="{ opacity: dx < 0 ? 1 : 0, '--p': Math.min(1, -dx / ACTIONS_W) }">
+      <div class="under-actions" :style="{ opacity: dx < 0 ? 1 : 0, '--p': Math.min(1, -dx / actionsW) }">
         <button v-if="postpone" class="ua postpone" @click="act('postpone')"><Icon :name="task.repeat ? 'skip' : 'arrow-right'" /><span>{{ task.repeat ? '跳过' : '推迟' }}</span></button>
+        <button v-if="canDrop" class="ua drop" @click="act('drop')"><Icon name="ban" /><span>放弃</span></button>
         <button class="ua delete" @click="act('delete')"><Icon name="trash" /><span>删除</span></button>
       </div>
     </div>
@@ -143,12 +149,13 @@ const openRow = { close: null };
       @pointercancel="onUp"
       @click="onClick"
     >
-      <button class="check" :aria-label="done ? '标记为未完成' : '标记为完成'" @click.stop="toggle">
-        <svg viewBox="0 0 24 24"><path d="M6.5 12.5l3.6 3.6 7.4-8" /></svg>
+      <button class="check" :aria-label="task.dropped ? '恢复' : done ? '标记为未完成' : '标记为完成'" @click.stop="toggle">
+        <svg viewBox="0 0 24 24"><path :d="task.dropped && !pending ? 'M8 8l8 8M16 8l-8 8' : 'M6.5 12.5l3.6 3.6 7.4-8'" /></svg>
       </button>
       <div class="trow-body">
         <div class="trow-title"><span>{{ task.title }}</span></div>
-        <div v-if="(showDate && task.date) || (compact && task.time) || task.note || (task.repeat && !hideRepeat) || streak > 1 || sub[1] || parentTitle" class="trow-meta">
+        <div v-if="(showDate && task.date) || (compact && task.time) || task.note || (task.repeat && !hideRepeat) || streak > 1 || sub[1] || parentTitle || task.dropped" class="trow-meta">
+          <span v-if="task.dropped && !pending" class="meta-dropped">已放弃</span>
           <span v-if="showDate && task.date" :class="{ overdue: isOverdue(task) }">{{ dateLabel(task.date) }}</span>
           <span v-if="streak > 1" class="meta-streak num"><Icon name="flame" />连续 {{ streak }} {{ streakUnit }}</span>
           <span v-if="task.repeat && !hideRepeat" class="meta-repeat"><Icon name="repeat" /><span v-if="!compact">{{ repeatLabel(task.repeat, task.date) }}</span></span>
@@ -158,7 +165,7 @@ const openRow = { close: null };
           <span v-if="parentTitle" class="meta-parent">↳ {{ parentTitle }}</span>
         </div>
       </div>
-      <div v-if="!compact && task.time" class="trow-time num"><Icon v-if="task.remind != null && !task.done" name="bell" />{{ task.time }}</div>
+      <div v-if="!compact && task.time" class="trow-time num" :class="{ hide: dx < -24 }"><Icon v-if="task.remind != null && !task.done" name="bell" />{{ task.time }}</div>
     </div>
   </div>
 </template>
@@ -182,6 +189,7 @@ const openRow = { close: null };
 .ua .icon { width: 20px; height: 20px; }
 .ua.postpone { background: var(--warn); }
 .ua.delete { background: var(--danger); }
+.ua.drop { background: #8E8E9A; }
 
 .trow-main {
   position: relative; display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 10px 16px 10px 14px;
@@ -215,6 +223,11 @@ const openRow = { close: null };
 }
 .done .trow-title { color: var(--text-3); }
 .done .trow-title span { background-size: 100% 1.5px; }
+/* 放弃：灰色、不划线，标一个“已放弃” */
+.dropped .trow-title span { background-size: 0 1.5px; }
+.dropped .check svg { stroke-dasharray: none; stroke-width: 2.6; }
+.meta-dropped { padding: 0 6px; border-radius: 6px; background: var(--fill); color: var(--text-3); font-size: 11.5px; font-weight: 600; line-height: 18px; }
+.compact.dropped .trow-title { text-decoration: none; }
 .trow-meta { display: flex; align-items: center; gap: 8px; margin-top: 2px; font-size: 12.5px; color: var(--text-3); }
 .trow-meta .overdue { color: var(--danger); font-weight: 600; }
 .meta-note .icon { width: 13px; height: 13px; display: block; }
@@ -230,6 +243,9 @@ const openRow = { close: null };
 .meta-time { display: inline-flex; align-items: center; gap: 2px; }
 .meta-time .icon { width: 11px; height: 11px; }
 .done .trow-time { color: var(--text-3); }
+/* 左滑露出按钮时把时间收起来，给标题留地方 */
+.trow-time { transition: opacity .2s, max-width .25s var(--ease); max-width: 80px; overflow: hidden; }
+.trow-time.hide { opacity: 0; max-width: 0; }
 
 /* 紧凑版（四象限卡片）：没有卡片底，标题最多两行 */
 .trow.compact { border-radius: 10px; }

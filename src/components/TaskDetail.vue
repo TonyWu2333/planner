@@ -14,7 +14,7 @@ import { remindLabel } from '../lib/notify.js';
 import { repeatLabel, nextOccurrence } from '../lib/repeat.js';
 import {
   state, findTask, updateTask, toggleDone, removeTask,
-  addSubtask, toggleSubtask, subDone, subProgress, childrenOf,
+  addSubtask, toggleSubtask, subDone, subProgress, childrenOf, dropTask,
 } from '../lib/store.js';
 import { dateLabel, parseYmd, WEEKDAY, today, pad } from '../lib/date.js';
 import { quadrantOf, quadrantFlags, isOverdue } from '../lib/quadrant.js';
@@ -181,6 +181,20 @@ function onCheck() {
   if (parent.value) toggleSubtask(parent.value.id, t.value.id, parentOcc.value);
   else toggleDone(t.value.id, occDay.value);
 }
+// 放弃：只给还没完成的一次性任务；挂在重复任务下、按父任务每天打勾的子任务也不行（那种每天都会重来）
+const canDrop = computed(() => !!t.value && !t.value.repeat && !t.value.done && !(parent.value?.repeat && !t.value.date));
+function onDrop() {
+  const name = t.value.title;
+  const undo = dropTask(t.value.id);
+  haptic.light();
+  if (stack.value.length) goBack();
+  else emit('close');
+  toast(`已放弃「${name}」`, { action: undo });
+}
+function onRestore() {
+  haptic.light();
+  updateTask(t.value.id, { done: false });
+}
 function onDelete() {
   const name = t.value.title;
   const kids = children.value.length;
@@ -203,9 +217,9 @@ const fmt = (ms) => {
       <button v-if="parent" class="td-back press" @click="goBack">
         <Icon name="chevron-left" /><span>{{ parent.title }}</span>
       </button>
-      <div class="td-top" :class="{ done: isDone }">
-        <button class="td-check" :aria-label="isDone ? '标记为未完成' : '标记为完成'" @click="onCheck">
-          <svg viewBox="0 0 24 24"><path d="M6.5 12.5l3.6 3.6 7.4-8" /></svg>
+      <div class="td-top" :class="{ done: isDone, dropped: t.dropped }">
+        <button class="td-check" :aria-label="t.dropped ? '恢复' : isDone ? '标记为未完成' : '标记为完成'" @click="onCheck">
+          <svg viewBox="0 0 24 24"><path :d="t.dropped ? 'M8 8l8 8M16 8l-8 8' : 'M6.5 12.5l3.6 3.6 7.4-8'" /></svg>
         </button>
         <textarea
           ref="titleEl"
@@ -220,6 +234,11 @@ const fmt = (ms) => {
           @input="autosize($event.target)"
           @keydown.enter.prevent="$event.target.blur()"
         />
+      </div>
+
+      <div v-if="t.dropped" class="td-dropped">
+        <Icon name="ban" /><span>已放弃 · {{ fmt(t.doneAt) }}</span>
+        <button class="press" @click="onRestore">恢复</button>
       </div>
 
       <div class="td-group">
@@ -317,8 +336,9 @@ const fmt = (ms) => {
         <span>
           创建于 {{ fmt(t.createdAt) }}
           <template v-if="t.repeat"> · 已完成 {{ t.doneDates.length }} 次</template>
-          <template v-else-if="t.doneAt"> · 完成于 {{ fmt(t.doneAt) }}</template>
+          <template v-else-if="t.doneAt && !t.dropped"> · 完成于 {{ fmt(t.doneAt) }}</template>
         </span>
+        <button v-if="canDrop" class="td-drop press" @click="onDrop"><Icon name="ban" />放弃</button>
         <button class="td-del press" @click="onDelete"><Icon name="trash" />删除</button>
       </div>
     </div>
@@ -361,6 +381,16 @@ const fmt = (ms) => {
 .td-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; font-size: 12px; color: var(--text-3); }
 .td-del { display: inline-flex; align-items: center; gap: 4px; height: 34px; padding: 0 12px; border-radius: 99px; color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); font-size: 13.5px; font-weight: 600; flex: none; }
 .td-del .icon { width: 16px; height: 16px; }
+.td-foot > span { flex: 1; min-width: 0; }
+.td-drop { display: inline-flex; align-items: center; gap: 4px; height: 34px; padding: 0 12px; border-radius: 99px; color: var(--text-2); background: var(--fill); font-size: 13.5px; font-weight: 600; flex: none; }
+.td-drop .icon { width: 15px; height: 15px; }
+.td-dropped { display: flex; align-items: center; gap: 8px; margin: -4px 0 12px; padding: 8px 8px 8px 12px; border-radius: 12px; background: var(--fill); color: var(--text-2); font-size: 13.5px; }
+.td-dropped .icon { width: 16px; height: 16px; flex: none; color: var(--text-3); }
+.td-dropped span { flex: 1; }
+.td-dropped button { height: 30px; padding: 0 14px; border-radius: 99px; background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 13px; }
+.td-top.dropped .td-check { background: var(--text-3); border-color: var(--text-3); }
+.td-top.dropped .td-check svg { stroke-dasharray: none; }
+.td-top.dropped .td-title { text-decoration: none; }
 .td-label .num { color: var(--accent); }
 /* 子任务：和主列表同一个 TaskRow（点开详情、左滑删除），放在灰底卡片里 */
 .st { border-radius: var(--r-md); background: var(--surface-2); overflow: hidden; }

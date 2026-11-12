@@ -11,8 +11,10 @@ import { haptic, toast } from '../lib/ui.js';
 const version = __APP_VERSION__;
 const td = computed(() => today());
 const todayTasks = computed(() => tasksOn(td.value));
-const todayDone = computed(() => todayTasks.value.filter((t) => t.done).length);
-const ratio = computed(() => (todayTasks.value.length ? todayDone.value / todayTasks.value.length : 0));
+// 放弃的任务不算进今天的进度（既不算完成，也不算总数）
+const todayCounted = computed(() => todayTasks.value.filter((t) => !t.dropped));
+const todayDone = computed(() => todayCounted.value.filter((t) => t.done).length);
+const ratio = computed(() => (todayCounted.value.length ? todayDone.value / todayCounted.value.length : 0));
 // 重复任务只算今天这一次
 const pendingAll = computed(
   () => state.tasks.filter((t) => !t.repeat && !t.done).length + todayTasks.value.filter((t) => t.repeat && !t.done).length,
@@ -25,7 +27,7 @@ const weekDone = computed(() => {
 
 // 每一次完成的日期：普通任务看 doneAt，重复任务看 doneDates
 const doneDays = computed(() =>
-  state.tasks.flatMap((t) => (t.repeat ? t.doneDates : t.doneAt ? [ymd(new Date(t.doneAt))] : [])),
+  state.tasks.flatMap((t) => (t.repeat ? t.doneDates : t.doneAt && !t.dropped ? [ymd(new Date(t.doneAt))] : [])),
 );
 // 最近 7 天每天完成数
 const last7 = computed(() => {
@@ -41,8 +43,8 @@ const greeting = computed(() => {
   return h < 6 ? '夜深了' : h < 11 ? '早上好' : h < 13 ? '中午好' : h < 18 ? '下午好' : '晚上好';
 });
 const summary = computed(() => {
-  const left = todayTasks.value.length - todayDone.value;
-  if (!todayTasks.value.length) return '今天还没有安排任务';
+  const left = todayCounted.value.length - todayDone.value;
+  if (!todayCounted.value.length) return '今天还没有安排任务';
   if (!left) return '今天的任务全部完成了，真棒';
   return `今天还有 ${left} 个任务待完成`;
 });
@@ -84,7 +86,7 @@ function toggle(key) {
         <p class="hero-hi">{{ greeting }}</p>
         <p class="hero-sum">{{ summary }}</p>
         <div class="hero-bar"><i :style="{ width: ratio * 100 + '%' }" /></div>
-        <p class="hero-num num">{{ todayDone }} / {{ todayTasks.length }} 已完成</p>
+        <p class="hero-num num">{{ todayDone }} / {{ todayCounted.length }} 已完成</p>
       </div>
     </section>
 
