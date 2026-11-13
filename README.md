@@ -1,7 +1,96 @@
-# 每日计划 (planner)
+<div align="center">
 
-A lightweight Android daily planner: calendar (with lunar calendar & Chinese public holidays) + Eisenhower matrix.
-Vue 3 + Vite, packaged as an Android app with Capacitor 8.
+# 📅 每日计划 · Planner
+
+**A fast, beautiful daily planner for Android, built around a Chinese calendar and the Eisenhower matrix.**
+<br>
+**And your AI agent can read and manage your tasks, too.**
+
+[![Version](https://img.shields.io/badge/version-0.10.1-4a5cf0?style=flat-square)](package.json)
+[![Platform](https://img.shields.io/badge/platform-Android-3ddc84?style=flat-square&logo=android&logoColor=white)](#-install)
+[![Vue 3](https://img.shields.io/badge/Vue-3-42b883?style=flat-square&logo=vuedotjs&logoColor=white)](https://vuejs.org)
+[![Vite](https://img.shields.io/badge/Vite-8-646cff?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
+[![Capacitor](https://img.shields.io/badge/Capacitor-8-119eff?style=flat-square&logo=capacitor&logoColor=white)](https://capacitorjs.com)
+[![Agent Skill](https://img.shields.io/badge/agent-skill%20ready-d97757?style=flat-square)](#-let-your-ai-agent-manage-your-tasks)
+
+[Features](#-features) · [Screenshots](#-screenshots) · [Install](#-install) · [Agent access](#-let-your-ai-agent-manage-your-tasks) · [Develop](#develop) · [中文](#中文简介)
+
+<br>
+
+<img src="docs/screenshots/hero.png" alt="Planner screenshots: calendar, Eisenhower matrix, check-ins, quick add" width="100%">
+
+</div>
+
+<br>
+
+## ✨ Why Planner
+
+Most to-do apps are either too simple to plan with or too heavy to open every morning. Planner is built for the middle: **open it, see today, tap, done**.
+
+- 🗓️ **A calendar that fits how you actually live.** Lunar dates, solar terms, festivals and Chinese 休 / 班 public-holiday schedules are right there on the month view.
+- 🧭 **Decide what matters.** Every task can be placed on a 2×2 Eisenhower matrix. Long-press and drag to re-prioritise.
+- ⚡ **Type it like you'd say it.** `明天下午3点开会` becomes a task tomorrow at 15:00. `每周五晚上8点 羽毛球` becomes a weekly repeat.
+- 🤖 **Agent-ready.** A tiny self-hosted sync server plus an installable skill lets Claude Code, Codex or Hermes read, add and complete your tasks.
+- 🔒 **Your data stays yours.** Everything is stored on the phone. Sync is optional, self-hosted, and one JSON file.
+
+## 🚀 Features
+
+| | |
+|---|---|
+| **Month ⇄ week calendar** | Collapsible, finger-following swipes, colour dots for each quadrant, lunar calendar & official holiday / make-up-workday marks |
+| **Eisenhower matrix** | Important × urgent quadrants, range filter (all / today / this week), long-press drag between quadrants |
+| **Natural-language quick add** | Chinese date, time and repeat parsing, with a live "recognised as…" preview you can undo |
+| **Flexible repeats** | Every N days / weeks / months / years, pick weekdays, optional end date; skip or complete a single occurrence |
+| **打卡 (check-ins)** | All repeating tasks in one tab, grouped by rule, with a progress ring and 🔥 streak counters |
+| **Subtasks** | Full tasks of their own: own date, time, reminder, quadrant and notes |
+| **Reminders** | Local notifications for the next 30 days, including repeats, with exact alarms |
+| **Gestures** | Swipe right to complete; swipe left to postpone or delete; undo toast; haptics |
+| **Search** | Across titles and notes, multiple terms must all match |
+| **Dropped state** | Mark a task as "no longer planning to do" without deleting its history |
+| **Backup & sync** | JSON export / import, plus optional sync to your own server |
+| **Polished details** | Edge-to-edge UI, Android 13 themed icon, keyboard-aware bottom sheets |
+
+## 📸 Screenshots
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/calendar.png" width="230"><br><sub><b>Calendar</b><br>lunar, holidays, agenda</sub></td>
+    <td align="center"><img src="docs/screenshots/quadrant.png" width="230"><br><sub><b>Eisenhower matrix</b><br>drag between quadrants</sub></td>
+    <td align="center"><img src="docs/screenshots/routine.png" width="230"><br><sub><b>打卡</b><br>streaks &amp; progress</sub></td>
+    <td align="center"><img src="docs/screenshots/quickadd.png" width="230"><br><sub><b>Quick add</b><br>natural-language input</sub></td>
+  </tr>
+</table>
+
+<sub>Screenshots use demo data.</sub>
+
+## 📲 Install
+
+There is no store listing yet. Build the APK yourself (needs JDK 21 and the Android SDK):
+
+```bash
+git clone https://github.com/TonyWu2333/planner.git && cd planner
+npm install
+npm run apk              # debug APK  → android/app/build/outputs/apk/debug/
+npm run install-apk      # adb install to the connected phone
+```
+
+For a signed release build see [Build & install on phone](#build--install-on-phone).
+
+Just want to look around? `npm run dev` and open it in a phone-sized browser viewport.
+
+## 🤖 Let your AI agent manage your tasks
+
+```
+phone app  ⇄  sync server (your server or this Mac)  ⇄  `planner` CLI + SKILL.md used by the agent
+```
+
+Ask things like *"what do I have today?"*, *"move the dentist to Friday"* or *"plan my week"*, and the agent edits the same tasks you see on your phone. Setup is three steps: run the server, paste the connection code on the phone, copy `skill/planner` into your agent's skills folder. Details in [Agent access](#agent-access-sync-server--skill).
+
+## 🧱 Tech stack
+
+Vue 3 · Vite · Capacitor 8 · `lunar-javascript` · a dependency-free Node sync server · a bundled CLI that reuses the app's own parsing and repeat logic.
+
+---
 
 ## Develop
 
@@ -85,3 +174,12 @@ It prints a connection code `http://host:18787#token`. On a public server, put i
 
 Task shape: `{ id, title, note, date: 'YYYY-MM-DD' | '', time: 'HH:MM' | '', important, urgent, done, dropped, createdAt, doneAt, updatedAt, repeat, doneDates, skipDates, remind, parentId }` (`remind`: minutes before, `null` = off; `repeat`: rule string, see `src/lib/repeat.js`).
 Data lives in app-private storage and is wiped on uninstall — export a backup regularly, or turn on sync.
+
+
+---
+
+## 中文简介
+
+**每日计划**是一款轻量、好看的安卓日程应用：农历 / 节气 / 法定节假日与调休日历 + 四象限 + 打卡，一句话快速记事（`明天下午3点开会`、`每周五晚上8点 羽毛球`）。数据只存在手机里，也可以同步到你自己的服务器，并让 Claude Code、Codex 等 AI Agent 通过 skill 读取、添加和完成任务。
+
+构建与安装见上文 [Install](#-install)，Agent 接入见 [Agent access](#agent-access-sync-server--skill)。
