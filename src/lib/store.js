@@ -2,6 +2,7 @@ import { reactive, watch } from 'vue';
 import { load, save, loadSettings, saveSettings } from './storage.js';
 import { normalizeRepeat, occursOn, instanceOf } from './repeat.js';
 import { today } from './date.js';
+import { taskSig, mergeState } from '../../shared/merge.js';
 
 // 任务结构：
 // { id, title, note, date: 'YYYY-MM-DD' | '', time: 'HH:MM' | '',
@@ -15,8 +16,11 @@ import { today } from './date.js';
 export const state = reactive({
   ready: false,
   tasks: [],
+  // 删除记录 { id: 删除时间 }：同步时告诉另一边这条删掉了（见 shared/merge.js）
+  deleted: {},
   // remindOn：到点提醒总开关；defaultRemind：新任务设了时间时默认提前几分钟提醒（0 = 准时）
-  settings: { showLunar: true, showHoliday: true, remindOn: true, defaultRemind: 0 },
+  // syncOn / syncCode：同步到自建服务器（见 sync.js），连接码 = 服务器地址#令牌
+  settings: { showLunar: true, showHoliday: true, remindOn: true, defaultRemind: 0, syncOn: false, syncCode: '' },
 });
 
 const uid = () =>
@@ -43,6 +47,8 @@ export function normalizeTask(t) {
     // 老数据没有这个字段：有时间的默认准时提醒
     remind: Number.isInteger(t.remind) && t.remind >= 0 ? t.remind : t.remind === undefined && t.time ? 0 : null,
     parentId: t.parentId ? String(t.parentId) : '',
+    // 最后修改时间：同步时按它决定哪边的版本新（保存时自动更新，见 stamp）
+    updatedAt: Number(t.updatedAt) || Number(t.createdAt) || Date.now(),
   };
 }
 // 旧格式：子任务是父任务里的 subtasks 清单 → 拆成独立的子任务（继承父任务的象限）
@@ -66,15 +72,71 @@ function migrate(raw) {
 const dateList = (a) => (Array.isArray(a) ? a.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)) : []);
 
 // ---- 持久化：任何改动 250ms 后整份写回 ----
+// 保存前先 stamp：和上次保存时的样子比，改过的任务更新 updatedAt，消失的任务记一条删除记录。
+// 这样不管是哪里改的（包括直接改对象字段），同步时都知道改了什么。
 let timer;
+const saved = new Map(); // id → 上次保存时的 taskSig
+const listeners = [];
+// 本地真的改了东西（不是同步拉下来的）时通知，同步模块用它来触发上传
+export const onLocalChange = (fn) => listeners.push(fn);
+function stamp() {
+  const now = Date.now();
+  const alive = new Set();
+  let changed = false;
+  for (const t of state.tasks) {
+    alive.add(t.id);
+    const sig = taskSig(t);
+    if (saved.get(t.id) === sig) continue;
+    t.updatedAt = Math.max(now, (t.updatedAt || 0) + 1);
+    saved.set(t.id, sig);
+    delete state.deleted[t.id]; // 撤销删除：任务又回来了
+    changed = true;
+  }
+  for (const id of saved.keys()) {
+    if (alive.has(id)) continue;
+    saved.delete(id);
+    state.deleted[id] = now;
+    changed = true;
+  }
+  if (changed) listeners.forEach((fn) => fn());
+}
+const remember = () => {
+  saved.clear();
+  for (const t of state.tasks) saved.set(t.id, taskSig(t));
+};
 export function flush() {
   clearTimeout(timer);
-  return save({ version: 1, tasks: state.tasks });
+  stamp();
+  return save({ version: 1, tasks: state.tasks, deleted: state.deleted });
+}
+
+// 同步：本地当前数据（先 stamp 好）
+export function syncPayload() {
+  stamp();
+  return { tasks: state.tasks, deleted: state.deleted };
+}
+// 同步：把服务器返回的结果和本地合并，原地更新（任务对象尽量不换，正在编辑的界面不受影响）
+export function applyRemote(remote) {
+  stamp(); // 请求期间本地又改了的，先记下来，合并时按时间比较
+  const merged = mergeState({ tasks: state.tasks, deleted: state.deleted }, remote);
+  const next = merged.tasks.map(normalizeTask);
+  const byId = new Map(state.tasks.map((t) => [t.id, t]));
+  state.tasks = next.map((t) => {
+    const cur = byId.get(t.id);
+    if (cur && taskSig(cur) === taskSig(t) && cur.updatedAt === t.updatedAt) return cur;
+    return cur ? Object.assign(cur, t) : t;
+  });
+  state.deleted = merged.deleted;
+  remember();
+  clearTimeout(timer);
+  save({ version: 1, tasks: state.tasks, deleted: state.deleted });
 }
 
 export async function initStore() {
   const [data, settings] = await Promise.all([load(), loadSettings()]);
   state.tasks = migrate(data.tasks).map(normalizeTask);
+  state.deleted = data.deleted && typeof data.deleted === 'object' ? data.deleted : {};
+  remember();
   Object.assign(state.settings, settings);
   state.ready = true;
   if (data.tasks.some((t) => Array.isArray(t.subtasks))) flush(); // 旧格式转换后马上存一次

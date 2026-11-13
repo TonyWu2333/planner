@@ -6,6 +6,7 @@ import { today, addDays, mondayOf, parseYmd, ymd, WEEKDAY } from '../lib/date.js
 import { exportBackup, importBackup } from '../lib/backup.js';
 import { REMIND_OPTIONS, remindLabel, notifyState } from '../lib/notify.js';
 import { haptic, toast } from '../lib/ui.js';
+import { syncState, syncNow, parseCode } from '../lib/sync.js';
 
 // 由 vite.config.js 注入（来自 package.json）
 const version = __APP_VERSION__;
@@ -74,6 +75,34 @@ function cycleDefaultRemind() {
 function toggle(key) {
   haptic.select();
   state.settings[key] = !state.settings[key];
+}
+
+// ---- 同步 ----
+const codeOk = computed(() => !!parseCode(state.settings.syncCode));
+const syncHost = computed(() => parseCode(state.settings.syncCode)?.url.replace(/^https?:\/\//, '') ?? '');
+const syncStatus = computed(() => {
+  if (!state.settings.syncOn) return '';
+  if (!codeOk.value) return state.settings.syncCode ? '连接码格式不对：应该是 地址#令牌' : '填入服务器启动时打印的连接码';
+  if (syncState.busy) return '正在同步…';
+  if (syncState.error) return `同步失败：${syncState.error}`;
+  if (syncState.at) {
+    const d = new Date(syncState.at);
+    return `已同步 · ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} · ${syncHost.value}`;
+  }
+  return '还没同步过';
+});
+function toggleSync() {
+  toggle('syncOn');
+  if (state.settings.syncOn) syncNow();
+}
+function onCodeChange(e) {
+  state.settings.syncCode = e.target.value.trim();
+  if (codeOk.value) syncNow();
+}
+async function onSyncNow() {
+  haptic.light();
+  await syncNow();
+  toast(syncState.error ? `同步失败：${syncState.error}` : '同步完成');
 }
 </script>
 
@@ -153,10 +182,39 @@ function toggle(key) {
       <input ref="fileInput" type="file" hidden @change="onImport" />
     </section>
 
+    <div class="group-title">同步与 Agent</div>
+    <section class="list">
+      <button class="li" @click="toggleSync">
+        <span class="li-ico" style="--c: #6366f1"><Icon name="cloud" /></span>
+        <span class="li-main">同步到自己的服务器<small>让电脑或服务器上的 agent（Claude Code、Codex、Hermes）也能看和改你的任务</small></span>
+        <span class="switch" :class="{ on: state.settings.syncOn }"><i /></span>
+      </button>
+      <template v-if="state.settings.syncOn">
+        <label class="li sync-code">
+          <span class="li-main">连接码<small>服务器启动时会打印，格式是 地址#令牌</small></span>
+          <input
+            :value="state.settings.syncCode"
+            type="text"
+            inputmode="url"
+            autocapitalize="off"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="http://192.168.1.5:18787#…"
+            @change="onCodeChange"
+          />
+        </label>
+        <button class="li" :disabled="!codeOk || syncState.busy" @click="onSyncNow">
+          <span class="li-main">立即同步<small :class="{ err: syncState.error || (state.settings.syncCode && !codeOk) }">{{ syncStatus }}</small></span>
+          <Icon name="chevron-right" class="li-arrow" />
+        </button>
+      </template>
+    </section>
+
     <section class="list note-card">
       <div class="li static">
         <span class="li-ico" style="--c: #64748b"><Icon name="shield" /></span>
-        <span class="li-main">数据只保存在本机<small>不联网、不上传。卸载 App 或清除应用数据会一起删除，建议定期导出备份。</small></span>
+        <span v-if="state.settings.syncOn" class="li-main">数据保存在本机和你自己的服务器<small>不经过任何第三方。连接码里有令牌，别发给别人。</small></span>
+        <span v-else class="li-main">数据只保存在本机<small>不联网、不上传。卸载 App 或清除应用数据会一起删除，建议定期导出备份。</small></span>
       </div>
     </section>
     <p class="ver">每日计划 · v{{ version }}</p>
@@ -213,5 +271,9 @@ function toggle(key) {
 .ver { text-align: center; font-size: 12px; color: var(--text-3); margin: 20px 0 8px; }
 .li-val { flex: none; font-size: 14.5px; color: var(--accent); font-weight: 550; }
 .li:disabled { opacity: .45; }
+.sync-code { flex-direction: column; align-items: stretch; gap: 8px; }
+.sync-code input { height: 40px; padding: 0 12px; border: 0; outline: 0; border-radius: 10px; background: var(--surface-2); font: inherit; font-size: 14px; color: var(--text); font-family: ui-monospace, Menlo, monospace; }
+.sync-code input:focus { box-shadow: 0 0 0 2px var(--accent); }
+.li-main small.err { color: var(--danger); }
 .li-warn { margin: -4px 20px 12px; font-size: 12.5px; line-height: 1.5; color: var(--danger); }
 </style>

@@ -41,11 +41,40 @@ Requires JDK 21 and an Android SDK (`android/local.properties` points at `~/Libr
 | `src/lib/ui.js` | Haptics, toast with undo, Android back-button stack, keyboard height (`@capacitor/keyboard` `keyboardWillShow`). |
 | `src/views/CalendarView.vue` | Month ⇄ week collapsible calendar (transform-only animation, three persistent pages for finger-following swipes), agenda with overdue / done groups. |
 | `src/views/QuadrantView.vue` | 2×2 matrix with range filter and long-press drag between quadrants. |
-| `src/views/MeView.vue` | Stats, display settings, backup export / import. |
+| `src/views/MeView.vue` | Stats, display settings, backup export / import, sync settings. |
 | `src/components/TaskRow.vue` | Task row: animated check, swipe right to complete, swipe left for postpone / delete. |
 | `src/components/SearchSheet.vue` | Search over titles and notes (space-separated terms, all must match). |
 | `src/components/QuickAdd.vue`, `TaskDetail.vue` | Bottom sheets for creating and editing tasks (edits save live). |
 | `android/app/src/main/res/drawable/ic_launcher_*.xml` | Vector adaptive app icon (incl. Android 13 themed icon). |
+
+## Agent access (sync server + skill)
+
+Agents such as Claude Code, Codex or Hermes can read and change the same tasks through a small self-hosted sync server:
+
+```
+phone app  ⇄  sync server (your server or this Mac)  ⇄  `planner` CLI + SKILL.md used by the agent
+```
+
+| Path | Purpose |
+|---|---|
+| `shared/merge.js` | Merge rule shared by app, server and CLI: per task, newer `updatedAt` wins; tombstones in `deleted` win over older edits. |
+| `server/server.js` | Sync server: one JSON file behind a bearer token, `GET /api/state`, `POST /api/sync`. Node 18+, no dependencies. |
+| `agent/cli.js` | `planner` CLI (today / list / search / add / done / skip / drop / edit / delete). Reuses the app's parsing and repeat logic. |
+| `skill/planner/` | The installable skill: `SKILL.md`, bundled `scripts/planner.mjs` and `server/planner-server.mjs`. Rebuild with `npm run build:agent`. |
+| `src/lib/sync.js` | App side: syncs on launch, resume, 2 s after a local change, and every minute in the foreground. |
+
+**Run the server** (on a machine both the phone and the agent can reach):
+
+```bash
+PLANNER_TOKEN=$(openssl rand -hex 24) PORT=18787 DATA_FILE=/var/lib/planner/data.json \
+  node skill/planner/server/planner-server.mjs
+```
+
+It prints a connection code `http://host:18787#token`. On a public server, put it behind HTTPS (for example Caddy: `planner.example.com { reverse_proxy 127.0.0.1:18787 }`) and use `https://planner.example.com#token`; keep it running with systemd or pm2.
+
+**Connect the phone:** 我的 → 同步与 Agent → turn on, paste the connection code.
+
+**Give an agent the skill:** copy or symlink `skill/planner` into the agent's skills folder (for example `~/.claude/skills/planner` for Claude Code; Codex and Hermes read the same `SKILL.md` format from their own skills folders), then run `node <skill>/scripts/planner.mjs login '<code>'` once on that machine, or set `PLANNER_CODE`.
 
 ## Android notes
 
@@ -54,5 +83,5 @@ Requires JDK 21 and an Android SDK (`android/local.properties` points at `~/Libr
 
 ## Data
 
-Task shape: `{ id, title, note, date: 'YYYY-MM-DD' | '', time: 'HH:MM' | '', important, urgent, done, createdAt, doneAt, repeat, doneDates, skipDates, remind }` (`remind`: minutes before, `null` = off).
-Data lives in app-private storage and is wiped on uninstall — export a backup regularly.
+Task shape: `{ id, title, note, date: 'YYYY-MM-DD' | '', time: 'HH:MM' | '', important, urgent, done, dropped, createdAt, doneAt, updatedAt, repeat, doneDates, skipDates, remind, parentId }` (`remind`: minutes before, `null` = off; `repeat`: rule string, see `src/lib/repeat.js`).
+Data lives in app-private storage and is wiped on uninstall — export a backup regularly, or turn on sync.

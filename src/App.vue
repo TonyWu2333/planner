@@ -14,6 +14,7 @@ import { state, flush } from './lib/store.js';
 import { today } from './lib/date.js';
 import { haptic, handleBack } from './lib/ui.js';
 import { initReminders, scheduleSync } from './lib/notify.js';
+import { initSync, syncNow } from './lib/sync.js';
 
 const TABS = [
   { key: 'calendar', label: '日程', icon: 'calendar' },
@@ -42,10 +43,18 @@ onMounted(() => {
     if (tab.value !== 'calendar') tab.value = 'calendar';
     else CapApp.minimizeApp();
   });
-  CapApp.addListener('pause', flush);
+  CapApp.addListener('pause', () => {
+    flush();
+    syncNow();
+  });
   // 隔天再打开时，“今天”已经变了，直接刷新
   const day = today();
-  CapApp.addListener('resume', () => (today() !== day ? location.reload() : scheduleSync()));
+  CapApp.addListener('resume', () => {
+    if (today() !== day) return location.reload();
+    scheduleSync();
+    syncNow(); // agent 可能在你离开时改过任务
+  });
+  initSync();
   // 点了提醒通知：打开那条任务
   initReminders((id, occ) => {
     tab.value = 'calendar';
