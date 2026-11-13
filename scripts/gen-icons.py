@@ -1,115 +1,87 @@
 #!/usr/bin/env python3
-"""Generate the app icon from a shape list. Three concepts are kept here (A quadrant check,
-B calendar check, C four-colour progress ring); CHOSEN picks the one that ships.
+"""Build the 可及清单 launcher icon from docs/brand/list-icon-source.png (see docs/DESIGN.md, "App icon").
 
-Outputs android/app/src/main/res/drawable/ic_launcher_{bg,fg,mono}.xml (adaptive-icon layers used by
-mipmap-anydpi-v26/ic_launcher*.xml, incl. the Android 13 themed-icon monochrome layer) and
-scripts/icon-preview.svg for a quick look, plus the legacy PNG mipmaps (Android < 8) rendered with
-macOS qlmanage + sips.
+The source is a square illustration on a near-white background. The script measures the
+illustration's bounding box, centres it on the 108dp adaptive-icon foreground with its height at
+CONTENT_DP, pads with the background colour, and writes:
 
-Shapes are drawn on a 100x100 canvas = the part of the 108dp adaptive icon a launcher shows
-(central 72dp), so the foreground group is translated 18dp and scaled 0.72.
-Run: python3 scripts/gen-icons.py
+  android/app/src/main/res/mipmap-*/ic_launcher_foreground.png   adaptive foreground, 108dp per density
+  android/app/src/main/res/mipmap-*/ic_launcher{,_round}.png      legacy icons (Android < 8): the visible 72dp
+  android/app/src/main/res/values/ic_launcher_background.xml      adaptive background colour
+  android/app/src/main/res/drawable/ic_stat_notify.xml            status-bar icon (white silhouette)
+
+Uses only macOS `sips` (no Python packages). Run: python3 scripts/gen-icons.py
 """
-import math, os, re, shutil, subprocess, tempfile
+import os, struct, subprocess, tempfile, shutil
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RES = os.path.join(ROOT, 'android/app/src/main/res')
+SRC = os.path.join(ROOT, 'docs/brand/list-icon-source.png')
 
-def rr(x, y, w, h, r):
-    return (f'M{x+r},{y}h{w-2*r}a{r},{r} 0 0 1 {r},{r}v{h-2*r}a{r},{r} 0 0 1 {-r},{r}'
-            f'h{-(w-2*r)}a{r},{r} 0 0 1 {-r},{-r}v{-(h-2*r)}a{r},{r} 0 0 1 {r},{-r}z')
+CONTENT_DP = 60      # illustration height on the 108dp layer (safe zone is a 66dp circle; launchers show ~72dp)
+THRESHOLD = 230      # a pixel is "content" when any channel is darker than this
+DENSITIES = [('mdpi', 1), ('hdpi', 1.5), ('xhdpi', 2), ('xxhdpi', 3), ('xxxhdpi', 4)]
 
-def circle(cx, cy, r):
-    return f'M{cx-r},{cy}a{r},{r} 0 1 0 {2*r},0a{r},{r} 0 1 0 {-2*r},0z'
+def sips(*args):
+    subprocess.run(['sips', *args], check=True, capture_output=True)
 
-def arc(cx, cy, r, a0, a1):
-    p = lambda a: (round(cx + r * math.cos(math.radians(a)), 3), round(cy + r * math.sin(math.radians(a)), 3))
-    (x0, y0), (x1, y1) = p(a0), p(a1)
-    return f'M{x0},{y0}A{r},{r} 0 0 1 {x1},{y1}'
-
-# shape: (path, dict(fill=?, alpha=?, stroke=?, width=?))
-ICONS = {
-    'a': dict(name='象限对勾', bg='#4B5CF0', shapes=[
-        (rr(24, 24, 24, 24, 7), dict(fill='#FF6B57')),
-        ('M30.5,36.5l4,4l7.5,-8', dict(stroke='#FFFFFF', width=3.6)),
-        (rr(52, 24, 24, 24, 7), dict(fill='#FFFFFF', alpha=0.92)),
-        (rr(24, 52, 24, 24, 7), dict(fill='#FFFFFF', alpha=0.6)),
-        (rr(52, 52, 24, 24, 7), dict(fill='#FFFFFF', alpha=0.32)),
-    ], mono=[
-        (rr(24, 24, 24, 24, 7), dict(fill='#FFFFFF')),
-        (rr(52, 24, 24, 24, 7), dict(fill='#FFFFFF', alpha=0.75)),
-        (rr(24, 52, 24, 24, 7), dict(fill='#FFFFFF', alpha=0.5)),
-        (rr(52, 52, 24, 24, 7), dict(fill='#FFFFFF', alpha=0.3)),
-    ]),
-    'b': dict(name='日历对勾', bg='#FFFFFF', shapes=[
-        (rr(22, 27, 56, 50, 13), dict(fill='#4B5CF0')),
-        (rr(33, 20, 7, 15, 3.5), dict(fill='#3343D6')),
-        (rr(60, 20, 7, 15, 3.5), dict(fill='#3343D6')),
-        ('M37,53l9,9l17,-19', dict(stroke='#FFFFFF', width=7)),
-        (circle(76, 27, 8.5), dict(fill='#FFFFFF')),
-        (circle(76, 27, 6), dict(fill='#FF6B57')),
-    ], mono=[
-        (rr(25, 30, 50, 44, 11), dict(stroke='#FFFFFF', width=6)),
-        ('M36.5,20v14M63.5,20v14', dict(stroke='#FFFFFF', width=6)),
-        ('M38,53l8,8l16,-18', dict(stroke='#FFFFFF', width=6)),
-    ]),
-    'c': dict(name='四色进度环', bg='#1E2140', shapes=[
-        *[(arc(50, 50, 26, -81 + i * 90, -81 + i * 90 + 59.5), dict(stroke=c, width=9))
-          for i, c in enumerate(['#FF6B57', '#FFB020', '#38BDF8', '#34D399'])],
-        ('M40,51l7,7l13,-15', dict(stroke='#FFFFFF', width=6)),
-    ], mono=[
-        *[(arc(50, 50, 26, -81 + i * 90, -81 + i * 90 + 59.5), dict(stroke='#FFFFFF', width=9)) for i in range(4)],
-        ('M40,51l7,7l13,-15', dict(stroke='#FFFFFF', width=6)),
-    ]),
-}
-
-def xml_path(d, o):
-    if 'stroke' in o:
-        return (f'        <path android:pathData="{d}" android:strokeColor="{o["stroke"]}" android:strokeWidth="{o["width"]}"\n'
-                f'            android:strokeLineCap="round" android:strokeLineJoin="round" />')
-    a = f' android:fillAlpha="{o["alpha"]}"' if 'alpha' in o else ''
-    return f'        <path android:pathData="{d}" android:fillColor="{o["fill"]}"{a} />'
-
-def vector(shapes):
-    body = '\n'.join(xml_path(d, o) for d, o in shapes)
-    return ('<?xml version="1.0" encoding="utf-8"?>\n<!-- generated by scripts/gen-icons.py -->\n'
-            '<vector xmlns:android="http://schemas.android.com/apk/res/android"\n'
-            '    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">\n'
-            '    <group android:translateX="18" android:translateY="18" android:scaleX="0.72" android:scaleY="0.72">\n'
-            f'{body}\n    </group>\n</vector>\n')
-
-def svg(icon):
-    parts = [f'<rect width="100" height="100" fill="{icon["bg"]}"/>']
-    for d, o in icon['shapes']:
-        if 'stroke' in o:
-            parts.append(f'<path d="{d}" fill="none" stroke="{o["stroke"]}" stroke-width="{o["width"]}" stroke-linecap="round" stroke-linejoin="round"/>')
-        else:
-            a = f' fill-opacity="{o["alpha"]}"' if 'alpha' in o else ''
-            parts.append(f'<path d="{d}" fill="{o["fill"]}"{a}/>')
-    return f'<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">{"".join(parts)}</svg>'
-
-CHOSEN = 'c'
-icon = ICONS[CHOSEN]
-open(f'{RES}/drawable/ic_launcher_fg.xml', 'w').write(vector(icon['shapes']))
-open(f'{RES}/drawable/ic_launcher_mono.xml', 'w').write(vector(icon['mono']))
-open(f'{RES}/drawable/ic_launcher_bg.xml', 'w').write(
-    '<?xml version="1.0" encoding="utf-8"?>\n<!-- generated by scripts/gen-icons.py -->\n'
-    f'<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="{icon["bg"]}" /></shape>\n')
-open(os.path.join(ROOT, 'scripts/icon-preview.svg'), 'w').write(svg(icon))
-print('icon:', CHOSEN, icon['name'])
-
-# 旧版安卓（< 8.0）用的 PNG：方形圆角 + 圆形，各个密度一份（macOS 自带的 qlmanage 渲染 SVG）
 tmp = tempfile.mkdtemp()
-inner = re.sub(r'^<svg[^>]*>|</svg>$', '', svg(icon))
-for name, clip in [('ic_launcher', '<rect x="4" y="4" width="92" height="92" rx="22"/>'),
-                   ('ic_launcher_round', '<circle cx="50" cy="50" r="46"/>')]:
-    src = f'{tmp}/{name}.svg'
-    open(src, 'w').write('<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="512" height="512">'
-                         f'<defs><clipPath id="m">{clip}</clipPath></defs><g clip-path="url(#m)">{inner}</g></svg>')
-    subprocess.run(['qlmanage', '-t', '-s', '512', '-o', tmp, src], check=True, capture_output=True)
-    for dens, px in [('mdpi', 48), ('hdpi', 72), ('xhdpi', 96), ('xxhdpi', 144), ('xxxhdpi', 192)]:
-        subprocess.run(['sips', '-z', str(px), str(px), f'{src}.png', '--out', f'{RES}/mipmap-{dens}/{name}.png'],
-                       check=True, capture_output=True)
+bmp = f'{tmp}/src.bmp'
+sips('-s', 'format', 'bmp', SRC, '--out', bmp)
+b = open(bmp, 'rb').read()
+off = struct.unpack_from('<I', b, 10)[0]
+w, h = struct.unpack_from('<ii', b, 18)
+bp = struct.unpack_from('<H', b, 28)[0] // 8
+row = (w * bp + 3) // 4 * 4
+top_down, h = h < 0, abs(h)
+
+def px(x, y):
+    i = off + (y if top_down else h - 1 - y) * row + x * bp
+    return b[i + 2], b[i + 1], b[i]
+
+bg = px(0, 0)
+xs, ys = [], []
+for y in range(0, h, 2):
+    for x in range(0, w, 2):
+        if min(px(x, y)) < THRESHOLD:
+            xs.append(x); ys.append(y)
+x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
+layer = round((y1 - y0) * 108 / CONTENT_DP)          # source pixels per 108dp
+bg_hex = '%02X%02X%02X' % bg
+print(f'content {x1 - x0}x{y1 - y0} at ({cx},{cy}); layer {layer}px; background #{bg_hex}')
+
+# Pad generously (sips pads around the centre), then cut the layer window around the content
+pad = max(w, h) + 2 * layer
+padded = f'{tmp}/pad.png'
+sips('--padToHeightWidth', str(pad), str(pad), '--padColor', bg_hex, SRC, '--out', padded)
+ox, oy = (pad - w) // 2, (pad - h) // 2
+fg = f'{tmp}/fg.png'
+sips('-c', str(layer), str(layer), '--cropOffset', str(oy + cy - layer // 2), str(ox + cx - layer // 2), padded, '--out', fg)
+visible = round(layer * 72 / 108)
+legacy = f'{tmp}/legacy.png'
+sips('-c', str(visible), str(visible), fg, '--out', legacy)
+
+for dens, k in DENSITIES:
+    d = f'{RES}/mipmap-{dens}'
+    sips('-z', str(round(108 * k)), str(round(108 * k)), fg, '--out', f'{d}/ic_launcher_foreground.png')
+    for name in ('ic_launcher', 'ic_launcher_round'):
+        sips('-z', str(round(48 * k)), str(round(48 * k)), legacy, '--out', f'{d}/{name}.png')
 shutil.rmtree(tmp)
-print('png mipmaps written')
+
+open(f'{RES}/values/ic_launcher_background.xml', 'w').write(
+    '<?xml version="1.0" encoding="utf-8"?>\n<!-- generated by scripts/gen-icons.py -->\n'
+    f'<resources>\n    <color name="ic_launcher_background">#{bg_hex}</color>\n</resources>\n')
+
+# Status-bar icon: the list glyph (rounded square + check) as a white silhouette
+open(f'{RES}/drawable/ic_stat_notify.xml', 'w').write('''<?xml version="1.0" encoding="utf-8"?>
+<!-- generated by scripts/gen-icons.py; 状态栏通知小图标：必须是纯白剪影 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:pathData="M7,3.5h10a3.5,3.5 0 0 1 3.5,3.5v10a3.5,3.5 0 0 1 -3.5,3.5h-10a3.5,3.5 0 0 1 -3.5,-3.5v-10a3.5,3.5 0 0 1 3.5,-3.5z"
+        android:strokeColor="#FFFFFFFF" android:strokeWidth="2" />
+    <path android:pathData="M8,12.2l2.8,2.8l5.2,-5.6" android:strokeColor="#FFFFFFFF" android:strokeWidth="2.2"
+        android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>
+''')
+print('icons written')

@@ -1,6 +1,6 @@
 {
   "appId": "com.tonywu.planner",
-  "appName": "每日计划",
+  "appName": "可及清单",
   "webDir": "dist",
   "plugins": {
     "SystemBars": {

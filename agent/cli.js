@@ -1,4 +1,4 @@
-// planner: command-line access to the 每日计划 app's tasks, for people and agents.
+// planner: command-line access to the 可及清单 app's tasks, for people and agents.
 // Talks to the sync server (server/server.js); the phone app syncs with the same server.
 // Built into one file (skill/planner/scripts/planner.mjs) by `npm run build:agent`. Node 18+.
 import fs from 'node:fs';
@@ -10,7 +10,7 @@ import { occursOn, nextOccurrence, repeatLabel, normalizeRepeat, parseRule } fro
 import { today, addDays, mondayOf, WEEKDAY, parseYmd } from '../src/lib/date.js';
 import { QUADRANTS, quadrantOf, quadrantFlags } from '../src/lib/quadrant.js';
 
-const HELP = `planner — read and change tasks in the 每日计划 app
+const HELP = `planner — read and change tasks in the 可及清单 app
 
 Setup (once):
   planner login <code>          save the connection code printed by the sync server (url#token)

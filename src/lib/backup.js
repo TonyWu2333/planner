@@ -11,7 +11,7 @@ export async function exportBackup() {
     // 写到缓存目录，再调起系统分享，用户自己选发到微信 / 网盘 / 文件管理
     const { uri } = await Filesystem.writeFile({ path: name, data: text, directory: Directory.Cache, encoding: Encoding.UTF8 });
     try {
-      await Share.share({ title: '每日计划备份', files: [uri] });
+      await Share.share({ title: '可及清单备份', files: [uri] });
     } catch {
       /* 用户取消分享 */
     }

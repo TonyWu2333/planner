@@ -164,7 +164,7 @@ async function onSyncNow() {
       </button>
     </section>
     <p v-if="state.settings.remindOn && notifyState.permission === 'denied'" class="li-warn">
-      通知权限没开，提醒发不出来：系统设置 → 应用 → 每日计划 → 通知，打开“允许通知”。
+      通知权限没开，提醒发不出来：系统设置 → 应用 → 可及清单 → 通知，打开“允许通知”。
     </p>
 
     <div class="group-title">数据</div>
@@ -217,7 +217,14 @@ async function onSyncNow() {
         <span v-else class="li-main">数据只保存在本机<small>不联网、不上传。卸载 App 或清除应用数据会一起删除，建议定期导出备份。</small></span>
       </div>
     </section>
-    <p class="ver">每日计划 · v{{ version }}</p>
+    <p class="ver">
+      <svg class="ver-mark" viewBox="14 16 72 74" aria-hidden="true">
+        <path d="M22,29H78M66,29V65q0,11 -11,11" stroke-width="9" />
+        <path d="M32,45h18v17h-18z" stroke-width="8" />
+        <circle cx="42.5" cy="76" r="6.5" />
+      </svg>
+      可及清单 · v{{ version }}
+    </p>
   </div>
 </template>
 
@@ -268,7 +275,9 @@ async function onSyncNow() {
 .switch i { position: absolute; top: 2px; left: 2px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .2); transition: transform .3s var(--spring); }
 .switch.on { background: var(--accent); }
 .switch.on i { transform: translateX(20px); }
-.ver { text-align: center; font-size: 12px; color: var(--text-3); margin: 20px 0 8px; }
+.ver { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: var(--fs-cap); color: var(--text-3); margin: 20px 0 8px; }
+.ver-mark { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+.ver-mark circle { fill: var(--reach); stroke: none; }
 .li-val { flex: none; font-size: 14.5px; color: var(--accent); font-weight: 550; }
 .li:disabled { opacity: .45; }
 .sync-code { flex-direction: column; align-items: stretch; gap: 8px; }

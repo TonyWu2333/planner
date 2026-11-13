@@ -16251,7 +16251,7 @@ const quadrantFlags = (q) => ({
 	urgent: q === 1 || q === 3
 });
 // agent/cli.js
-const HELP = `planner — read and change tasks in the 每日计划 app
+const HELP = `planner — read and change tasks in the 可及清单 app
 
 Setup (once):
   planner login <code>          save the connection code printed by the sync server (url#token)

@@ -1,6 +1,8 @@
 <div align="center">
 
-# 📅 每日计划 · Planner
+<img src="docs/brand/list-icon-source.png" width="112" alt="">
+
+# 可及清单 · Reach List
 
 **A fast, beautiful daily planner for Android, built around a Chinese calendar and the Eisenhower matrix.**
 <br>
@@ -180,6 +182,6 @@ Data lives in app-private storage and is wiped on uninstall — export a backup 
 
 ## 中文简介
 
-**每日计划**是一款轻量、好看的安卓日程应用：农历 / 节气 / 法定节假日与调休日历 + 四象限 + 打卡，一句话快速记事（`明天下午3点开会`、`每周五晚上8点 羽毛球`）。数据只存在手机里，也可以同步到你自己的服务器，并让 Claude Code、Codex 等 AI Agent 通过 skill 读取、添加和完成任务。
+**可及清单**（原名「每日计划」）是「可及」系列工具的第一款，一款轻量、好看的安卓日程应用：农历 / 节气 / 法定节假日与调休日历 + 四象限 + 打卡，一句话快速记事（`明天下午3点开会`、`每周五晚上8点 羽毛球`）。数据只存在手机里，也可以同步到你自己的服务器，并让 Claude Code、Codex 等 AI Agent 通过 skill 读取、添加和完成任务。
 
-构建与安装见上文 [Install](#-install)，Agent 接入见 [Agent access](#agent-access-sync-server--skill)。
+设计规范见 [docs/DESIGN.md](docs/DESIGN.md)。构建与安装见上文 [Install](#-install)，Agent 接入见 [Agent access](#agent-access-sync-server--skill)。

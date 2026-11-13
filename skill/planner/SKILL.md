@@ -1,9 +1,9 @@
 ---
 name: planner
-description: Read and manage the user's tasks in their 每日计划 (daily planner) phone app — today's agenda, overdue items, repeating check-ins (打卡), quadrants, subtasks. Use when the user asks what they have to do, wants to add, reschedule, complete, skip, drop or delete a task or reminder, or asks to plan their day or week, in Chinese or English.
+description: Read and manage the user's tasks in their 可及清单 (Reach List, formerly 每日计划) to-do and calendar phone app — today's agenda, overdue items, repeating check-ins (打卡), quadrants, subtasks. Use when the user asks what they have to do, wants to add, reschedule, complete, skip, drop or delete a task or reminder, or asks to plan their day or week, in Chinese or English.
 ---
 
-# 每日计划 (planner)
+# 可及清单 (planner)
 
 The user keeps their tasks in a phone app. It syncs with a small server; the `planner` CLI in this skill reads and writes the same data, and the phone shows changes within a second or two while the app is open (otherwise the next time it is opened).
 

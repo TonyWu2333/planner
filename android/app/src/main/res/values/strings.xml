@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">每日计划</string>
-    <string name="title_activity_main">每日计划</string>
+    <string name="app_name">可及清单</string>
+    <string name="title_activity_main">可及清单</string>
     <string name="package_name">com.tonywu.planner</string>
     <string name="custom_url_scheme">com.tonywu.planner</string>
 </resources>
