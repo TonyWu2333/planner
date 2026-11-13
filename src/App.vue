@@ -18,7 +18,7 @@ import { initReminders, scheduleSync } from './lib/notify.js';
 const TABS = [
   { key: 'calendar', label: '日程', icon: 'calendar' },
   { key: 'quadrant', label: '四象限', icon: 'grid' },
-  { key: 'routine', label: '例行', icon: 'repeat' },
+  { key: 'routine', label: '打卡', icon: 'repeat' },
   { key: 'me', label: '我的', icon: 'user' },
 ];
 const tab = ref('calendar');

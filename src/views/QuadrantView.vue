@@ -28,7 +28,7 @@ const groups = computed(() => {
   const g = { 1: [], 2: [], 3: [], 4: [] };
   for (const raw of state.tasks) {
     if (raw.parentId) continue; // 子任务跟着父任务走，不单独占位置
-    if (raw.repeat) continue; // 重复任务放在「例行」页，四象限只放一次性的事
+    if (raw.repeat) continue; // 重复任务放在「打卡」页，四象限只放一次性的事
     const t = raw;
     if ((showDone.value || !t.done) && inRange(t)) g[quadrantOf(t)].push(t);
   }

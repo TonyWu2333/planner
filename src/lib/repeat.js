@@ -122,7 +122,7 @@ export function repeatLabel(repeat, date, withUntil = false) {
   return s;
 }
 
-// 「例行」页分组用
+// 「打卡」页分组用
 export function repeatGroup(repeat) {
   const r = parseRule(repeat);
   if (!r) return '';

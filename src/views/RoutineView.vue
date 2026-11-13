@@ -1,5 +1,5 @@
 <script setup>
-// 例行：所有重复任务集中在这里，按规则分组（每天 / 工作日 / 每周 / 每月）。
+// 打卡：所有重复任务集中在这里，按规则分组（每天 / 工作日 / 每周 / 每月）。
 // 每条显示今天这一次（今天不发生就显示下一次），可以直接打勾，并显示连续完成了几次。
 import { computed } from 'vue';
 import Icon from '../components/Icon.vue';
@@ -78,7 +78,7 @@ function onSkip(t) {
   <div class="rtview">
   <div class="rt-scroll scroll">
     <header class="page-header">
-      <h1>例行</h1>
+      <h1>打卡</h1>
       <button class="icon-btn rt-search press" aria-label="搜索" @click="emit('search')"><Icon name="search" /></button>
     </header>
 
@@ -91,10 +91,10 @@ function onSkip(t) {
           </svg>
         </div>
         <div class="rt-sum-text">
-          <b v-if="!todayList.length">今天没有例行</b>
-          <b v-else-if="doneToday === todayList.length">今天的例行都完成了</b>
+          <b v-if="!todayList.length">今天没有要打卡的</b>
+          <b v-else-if="doneToday === todayList.length">今天的卡都打完了</b>
           <b v-else>今天还剩 {{ todayList.length - doneToday }} 项</b>
-          <span class="num">今天 {{ doneToday }}/{{ todayList.length }} · 共 {{ routines.length }} 项例行</span>
+          <span class="num">今天 {{ doneToday }}/{{ todayList.length }} · 共 {{ routines.length }} 项打卡</span>
         </div>
       </section>
 
@@ -121,14 +121,14 @@ function onSkip(t) {
 
     <div v-else class="empty rt-empty">
       <EmptyArt />
-      <b>还没有例行任务</b>
+      <b>还没有打卡任务</b>
       <p>每天、每周都要做的事放在这里打卡<br />试试输入「每天 跑步」或「每周五晚上8点 周会」</p>
-      <button class="empty-btn press" @click="emit('add', { repeat: 'd1' })"><Icon name="plus" />添加例行</button>
+      <button class="empty-btn press" @click="emit('add', { repeat: 'd1' })"><Icon name="plus" />添加打卡</button>
     </div>
 
     <div class="rt-pad" />
   </div>
-    <button class="fab" aria-label="新建例行" @click="emit('add', { repeat: 'd1' })"><Icon name="plus" /></button>
+    <button class="fab" aria-label="新建打卡" @click="emit('add', { repeat: 'd1' })"><Icon name="plus" /></button>
   </div>
 </template>
 
