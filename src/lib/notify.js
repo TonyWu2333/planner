@@ -7,16 +7,17 @@ import { state } from './store.js';
 import { occursOn, repeatLabel } from './repeat.js';
 import { ymd, addDays } from './date.js';
 import { QUADRANTS, quadrantOf } from './quadrant.js';
+import { t as tr } from './i18n.js';
 
 export const REMIND_OPTIONS = [0, 5, 15, 30, 60];
 export function remindLabel(m) {
-  if (m == null) return '不提醒';
-  if (m === 0) return '准时';
-  return m >= 60 ? `提前 ${m / 60} 小时` : `提前 ${m} 分钟`;
+  if (m == null) return tr('不提醒');
+  if (m === 0) return tr('准时');
+  return m >= 60 ? tr('提前 {n} 小时', { n: m / 60 }) : tr('提前 {n} 分钟', { n: m });
 }
 
 // 选项按钮上的短文字
-export const remindShort = (m) => (m === 0 ? '准时' : m >= 60 ? `${m / 60} 小时前` : `${m} 分钟前`);
+export const remindShort = (m) => (m === 0 ? tr('准时') : m >= 60 ? tr('{n} 小时前', { n: m / 60 }) : tr('{n} 分钟前', { n: m }));
 
 const WINDOW_DAYS = 30; // 重复任务只往后排 30 天；每次打开 App 都会续上
 const MAX = 60; // 安卓对单个 App 的闹钟数量有限制，留足余量
@@ -51,7 +52,8 @@ function idOf(key) {
 }
 
 function toNotification({ at, task: t, date }) {
-  const when = t.remind ? `${remindLabel(t.remind).replace('提前 ', '')}后开始 · ${t.time}` : t.time;
+  const r = t.remind;
+  const when = r ? `${r >= 60 ? tr('{n} 小时后开始', { n: r / 60 }) : tr('{n} 分钟后开始', { n: r })} · ${t.time}` : t.time;
   const extra = [t.repeat && repeatLabel(t.repeat, t.date), QUADRANTS[quadrantOf(t)].name].filter(Boolean).join(' · ');
   return {
     id: idOf(`${t.id}|${date}`),
@@ -97,8 +99,8 @@ export async function initReminders(onOpen) {
   if (!native) return;
   await LocalNotifications.createChannel({
     id: 'reminders',
-    name: '任务提醒',
-    description: '到点提醒设了时间的任务',
+    name: tr('任务提醒'),
+    description: tr('到点提醒设了时间的任务'),
     importance: 5,
     visibility: 1,
     vibration: true,

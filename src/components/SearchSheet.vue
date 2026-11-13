@@ -8,6 +8,7 @@ import { dateLabel } from '../lib/date.js';
 import { repeatLabel } from '../lib/repeat.js';
 import { quadrantOf, byDate, isOverdue } from '../lib/quadrant.js';
 import { keyboard } from '../lib/ui.js';
+import { $t } from '../lib/i18n.js';
 
 const props = defineProps({ open: Boolean });
 const emit = defineEmits(['close', 'open']);
@@ -55,8 +56,8 @@ function noteSnippet(t) {
 }
 const sub = (t) =>
   [
-    t.dropped && '已放弃',
-    t.repeat ? repeatLabel(t.repeat, t.date) : t.date ? dateLabel(t.date) : '无日期',
+    t.dropped && $t('已放弃'),
+    t.repeat ? repeatLabel(t.repeat, t.date) : t.date ? dateLabel(t.date) : $t('无日期'),
     t.time,
     t.parentId && `↳ ${findTask(t.parentId)?.title ?? ''}`,
   ].filter(Boolean).join(' · ');
@@ -76,23 +77,23 @@ function pick(t) {
           ref="input"
           v-model="q"
           type="search"
-          placeholder="搜索任务、子任务、备注"
+          :placeholder="$t('搜索任务、子任务、备注')"
           enterkeyhint="search"
           @keydown.enter="input?.blur()"
         />
-        <button v-if="q" class="ss-clear" aria-label="清空" @click="q = ''; input?.focus()"><Icon name="x" /></button>
+        <button v-if="q" class="ss-clear" :aria-label="$t('清空')" @click="q = ''; input?.focus()"><Icon name="x" /></button>
       </div>
 
       <div class="ss-body scroll">
         <div v-if="!terms.length" class="ss-hint">
           <Icon name="search" />
-          <p>输入关键词，搜索全部任务的标题、子任务和备注<br />多个词用空格分开</p>
+          <p>{{ $t('输入关键词，搜索全部任务的标题、子任务和备注') }}<br />{{ $t('多个词用空格分开') }}</p>
         </div>
         <div v-else-if="!total" class="ss-hint">
-          <p>没有找到包含「{{ q.trim() }}」的任务</p>
+          <p>{{ $t('没有找到包含「{q}」的任务', { q: q.trim() }) }}</p>
         </div>
         <template v-else>
-          <template v-for="[key, label] in [['open', '待办'], ['done', '已完成']]" :key="key">
+          <template v-for="[key, label] in [['open', $t('待办')], ['done', $t('已完成')]]" :key="key">
             <template v-if="results[key].length">
               <div class="ss-group">{{ label }} · {{ results[key].length }}</div>
               <button v-for="t in results[key]" :key="t.id" class="sr" :class="['q' + quadrantOf(t), { done: key === 'done' }]" @click="pick(t)">

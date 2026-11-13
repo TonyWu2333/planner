@@ -6,6 +6,7 @@ import { state, toggleDone, updateTask, findTask } from '../lib/store.js';
 import { today, addDays, mondayOf } from '../lib/date.js';
 import { QUADRANTS, quadrantOf, quadrantFlags, byDate } from '../lib/quadrant.js';
 import { haptic, clickGuard, toast } from '../lib/ui.js';
+import { $t } from '../lib/i18n.js';
 
 const emit = defineEmits(['open', 'add', 'search']);
 
@@ -95,7 +96,7 @@ function endDrag() {
     const before = quadrantOf(t);
     updateTask(id, quadrantFlags(q));
     haptic.success();
-    toast(`已移到「${QUADRANTS[q].name}」`, { action: () => updateTask(id, quadrantFlags(before)) });
+    toast($t('已移到「{name}」', { name: QUADRANTS[q].name }), { action: () => updateTask(id, quadrantFlags(before)) });
   }
 }
 const onMove = (e) => {
@@ -123,17 +124,17 @@ onBeforeUnmount(() => {
 <template>
   <div class="quadview">
     <header class="page-header">
-      <h1>四象限</h1>
-      <button class="icon-btn qv-search press" aria-label="搜索" @click="emit('search')"><Icon name="search" /></button>
+      <h1>{{ $t('四象限') }}</h1>
+      <button class="icon-btn qv-search press" :aria-label="$t('搜索')" @click="emit('search')"><Icon name="search" /></button>
       <button class="chip press" :class="{ on: showDone }" @click="showDone = !showDone">
-        <Icon :name="showDone ? 'eye' : 'eye-off'" />已完成
+        <Icon :name="showDone ? 'eye' : 'eye-off'" />{{ $t('已完成') }}
       </button>
     </header>
 
     <div class="seg-wrap">
       <div class="seg">
         <i class="seg-thumb" :style="{ transform: `translateX(${rangeIndex * 100}%)` }" />
-        <button v-for="[k, v] in RANGES" :key="k" :class="{ on: range === k }" @click="range = k; haptic.select()">{{ v }}</button>
+        <button v-for="[k, v] in RANGES" :key="k" :class="{ on: range === k }" @click="range = k; haptic.select()">{{ $t(v) }}</button>
       </div>
     </div>
 
@@ -148,7 +149,7 @@ onBeforeUnmount(() => {
         <header class="qc-head">
           <b class="qc-name">{{ QUADRANTS[q].name }}</b>
           <span v-if="openCount(q)" class="qc-count num">{{ openCount(q) }}</span>
-          <button class="qc-add press" :aria-label="`在${QUADRANTS[q].name}里新建`" @click="emit('add', { q, date: today() })">
+          <button class="qc-add press" :aria-label="$t('在{name}里新建', { name: QUADRANTS[q].name })" @click="emit('add', { q, date: today() })">
             <Icon name="plus" />
           </button>
         </header>
@@ -167,12 +168,12 @@ onBeforeUnmount(() => {
             />
           </TransitionGroup>
           <Transition name="fade">
-            <div v-if="!groups[q].length" class="qc-empty"><span>{{ QUADRANTS[q].hint }}</span>{{ EMPTY[q] }}</div>
+            <div v-if="!groups[q].length" class="qc-empty"><span>{{ QUADRANTS[q].hint }}</span>{{ $t(EMPTY[q]) }}</div>
           </Transition>
         </div>
       </section>
     </div>
-    <p class="qtip">长按任务拖到其他象限 · 点击查看详情</p>
+    <p class="qtip">{{ $t('长按任务拖到其他象限 · 点击查看详情') }}</p>
   </div>
 </template>
 
@@ -199,6 +200,9 @@ onBeforeUnmount(() => {
 .qc-ico { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; background: var(--qc); color: #fff; flex: none; }
 .qc-ico .icon { width: 13px; height: 13px; stroke-width: 2.2; }
 .qc-name { flex: 0 1 auto; min-width: 0; font-size: 14.5px; font-weight: 650; color: var(--qc); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 英文象限名较长：允许折成两行，四张卡的标题行等高 */
+:lang(en) .qc-head { min-height: 52px; }
+:lang(en) .qc-name { white-space: normal; font-size: 14px; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .qc-count { flex: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--qc); background: var(--qsoft); }
 .qc-add { flex: none; margin-left: auto; width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; color: var(--text-3); }
 .qc-add:active { background: var(--fill); color: var(--qc); }

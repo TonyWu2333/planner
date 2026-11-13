@@ -1,4 +1,5 @@
 import { Solar, HolidayUtil } from 'lunar-javascript';
+import { isEn } from './i18n.js';
 
 export const pad = (n) => String(n).padStart(2, '0');
 // 用本地时间格式化，不用 toISOString（那是 UTC，北京时间早上 8 点前会差一天）
@@ -16,12 +17,30 @@ export const addDays = (s, n) => {
 export const diffDays = (a, b) => Math.round((parseYmd(a) - parseYmd(b)) / 864e5);
 export const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六'];
 export const weekdayOf = (s) => WEEKDAY[parseYmd(s).getDay()];
+const WD_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MON_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// 星期几（0 = 周日）："周五" / "Fri"；short 只要一个字："五" / "F"
+export const weekdayName = (i, short = false) => (isEn() ? (short ? WD_EN[i][0] : WD_EN[i]) : short ? WEEKDAY[i] : `周${WEEKDAY[i]}`);
+// "11月20日" / "Nov 20"
+export const monthDay = (d) => (isEn() ? `${MON_EN[d.getMonth()]} ${d.getDate()}` : `${d.getMonth() + 1}月${d.getDate()}日`);
+// "11月" / "Nov"
+export const monthName = (m0) => (isEn() ? MON_EN[m0] : `${m0 + 1}月`);
+// 1 → "1st"（英文序数，用于"每月 5 号"）
+export const ordinal = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
 // 周一为一周的第一天
 export const mondayOf = (s) => addDays(s, -((parseYmd(s).getDay() + 6) % 7));
 
 export function dateLabel(s) {
   if (!s) return '';
   const n = diffDays(s, today());
+  if (isEn()) {
+    const d = parseYmd(s);
+    if (n === 0) return 'Today';
+    if (n === 1) return 'Tomorrow';
+    if (n === -1) return 'Yesterday';
+    if (n > 1 && n < 7) return `${mondayOf(s) === mondayOf(today()) ? '' : 'Next '}${WD_EN[d.getDay()]}`;
+    return d.getFullYear() === new Date().getFullYear() ? monthDay(d) : `${monthDay(d)}, ${d.getFullYear()}`;
+  }
   if (n === 0) return '今天';
   if (n === 1) return '明天';
   if (n === 2) return '后天';

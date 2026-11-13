@@ -1,6 +1,7 @@
 <script setup>
 import Icon from './Icon.vue';
 import { haptic } from '../lib/ui.js';
+import { $t } from '../lib/i18n.js';
 
 defineProps({ modelValue: String });
 const emit = defineEmits(['update:modelValue']);
@@ -20,10 +21,10 @@ function pick(v) {
     <div class="trow-custom">
       <label class="tcustom" :class="{ on: modelValue && !PRESETS.includes(modelValue) }">
         <Icon name="clock" />
-        <span>自定义</span>
+        <span>{{ $t('自定义') }}</span>
         <input type="time" :value="modelValue" @change="pick($event.target.value)" />
       </label>
-      <button class="tclear press" :class="{ on: !modelValue }" @click="pick('')"><Icon name="ban" />不设时间</button>
+      <button class="tclear press" :class="{ on: !modelValue }" @click="pick('')"><Icon name="ban" />{{ $t('不设时间') }}</button>
     </div>
   </div>
 </template>

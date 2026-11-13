@@ -16,7 +16,8 @@ import {
   state, findTask, updateTask, toggleDone, removeTask,
   addSubtask, toggleSubtask, subDone, subProgress, childrenOf, dropTask,
 } from '../lib/store.js';
-import { dateLabel, parseYmd, WEEKDAY, today, pad } from '../lib/date.js';
+import { dateLabel, parseYmd, today, pad, monthDay, weekdayName } from '../lib/date.js';
+import { $t, isEn } from '../lib/i18n.js';
 import { quadrantOf, quadrantFlags, isOverdue } from '../lib/quadrant.js';
 import { haptic, toast, pushBack } from '../lib/ui.js';
 
@@ -88,16 +89,19 @@ const title = computed({
 });
 let titleBefore = '';
 function onTitleBlur() {
-  if (!t.value.title.trim()) updateTask(t.value.id, { title: titleBefore || '未命名任务' });
+  if (!t.value.title.trim()) updateTask(t.value.id, { title: titleBefore || $t('未命名任务') });
 }
 
 const dateText = computed(() => {
   const d = t.value?.date;
-  if (!d) return '无日期';
+  if (!d) return $t('无日期');
   const rel = dateLabel(d);
   const p = parseYmd(d);
-  const md = `${p.getMonth() + 1}月${p.getDate()}日`;
-  return rel === md ? `${md} 周${WEEKDAY[p.getDay()]}` : `${rel} · ${md} 周${WEEKDAY[p.getDay()]}`;
+  const md = monthDay(p);
+  const wd = weekdayName(p.getDay());
+  const full = isEn() ? `${wd}, ${md}` : `${md} ${wd}`;
+  // 英文的 dateLabel 本周内直接是 "Fri"，别再重复一遍
+  return rel === md || (isEn() && rel === wd) ? full : `${rel} · ${full}`;
 });
 
 // 重复任务：勾选的是哪一天（点进来的那天，否则是今天或下一次）
@@ -168,12 +172,12 @@ function onToggleSub(c) {
   const all = toggleSubtask(t.value.id, c.id, occDay.value);
   // 最后一个子任务勾完时，顺手问一句要不要把整个任务完成
   if (!wasDone && all && !isDone.value) {
-    toast('子任务都完成了', { action: () => toggleDone(t.value.id, occDay.value), actionText: '完成任务' });
+    toast($t('子任务都完成了'), { action: () => toggleDone(t.value.id, occDay.value), actionText: $t('完成任务') });
   }
 }
 function onDeleteSub(c) {
   const undo = removeTask(c.id);
-  toast(`已删除子任务「${c.title}」`, { action: undo });
+  toast($t('已删除子任务「{title}」', { title: c.title }), { action: undo });
 }
 
 function onCheck() {
@@ -189,7 +193,7 @@ function onDrop() {
   haptic.light();
   if (stack.value.length) goBack();
   else emit('close');
-  toast(`已放弃「${name}」`, { action: undo });
+  toast($t('已放弃「{title}」', { title: name }), { action: undo });
 }
 function onRestore() {
   haptic.light();
@@ -201,12 +205,17 @@ function onDelete() {
   const undo = removeTask(t.value.id);
   if (stack.value.length) goBack(); // 删的是推进来的子任务：退回父任务
   else emit('close');
-  const extra = [t.value.repeat && '以后的重复', kids && `${kids} 个子任务`].filter(Boolean).join('和');
-  toast(extra ? `已删除「${name}」及${extra}` : `已删除「${name}」`, { action: undo });
+  const rep = !!t.value.repeat;
+  const p = { title: name, n: kids };
+  const msg = rep && kids ? $t('已删除「{title}」及以后的重复和{n} 个子任务', p)
+    : rep ? $t('已删除「{title}」及以后的重复', p)
+    : kids ? $t('已删除「{title}」及{n} 个子任务', p)
+    : $t('已删除「{title}」', p);
+  toast(msg, { action: undo });
 }
 const fmt = (ms) => {
   const d = new Date(ms);
-  return `${d.getMonth() + 1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${monthDay(d)}${isEn() ? ',' : ''} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 </script>
 
@@ -218,7 +227,7 @@ const fmt = (ms) => {
         <Icon name="chevron-left" /><span>{{ parent.title }}</span>
       </button>
       <div class="td-top" :class="{ done: isDone, dropped: t.dropped }">
-        <button class="td-check" :aria-label="t.dropped ? '恢复' : isDone ? '标记为未完成' : '标记为完成'" @click="onCheck">
+        <button class="td-check" :aria-label="t.dropped ? $t('恢复') : isDone ? $t('标记为未完成') : $t('标记为完成')" @click="onCheck">
           <svg viewBox="0 0 24 24"><path :d="t.dropped ? 'M8 8l8 8M16 8l-8 8' : 'M6.5 12.5l3.6 3.6 7.4-8'" /></svg>
         </button>
         <textarea
@@ -226,7 +235,7 @@ const fmt = (ms) => {
           v-model="title"
           class="td-title"
           rows="1"
-          placeholder="任务标题"
+          :placeholder="$t('任务标题')"
           maxlength="200"
           enterkeyhint="done"
           @focus="titleBefore = t.title"
@@ -237,14 +246,14 @@ const fmt = (ms) => {
       </div>
 
       <div v-if="t.dropped" class="td-dropped">
-        <Icon name="ban" /><span>已放弃 · {{ fmt(t.doneAt) }}</span>
-        <button class="press" @click="onRestore">恢复</button>
+        <Icon name="ban" /><span>{{ $t('已放弃 · {time}', { time: fmt(t.doneAt) }) }}</span>
+        <button class="press" @click="onRestore">{{ $t('恢复') }}</button>
       </div>
 
       <div class="td-group">
         <button class="prop" @click="togglePanel('date')">
           <span class="prop-ico"><Icon name="calendar" /></span>
-          <span class="prop-label">{{ t.repeat ? '开始日期' : '日期' }}</span>
+          <span class="prop-label">{{ t.repeat ? $t('开始日期') : $t('日期') }}</span>
           <span class="prop-val" :class="{ set: t.date, overdue: isOverdue(t) }">{{ dateText }}</span>
           <Icon name="chevron-right" class="prop-arrow" :class="{ open: panel === 'date' }" />
         </button>
@@ -253,8 +262,8 @@ const fmt = (ms) => {
         </Transition>
         <button class="prop" @click="togglePanel('time')">
           <span class="prop-ico"><Icon name="clock" /></span>
-          <span class="prop-label">时间</span>
-          <span class="prop-val num" :class="{ set: t.time }">{{ t.time || '无' }}</span>
+          <span class="prop-label">{{ $t('时间') }}</span>
+          <span class="prop-val num" :class="{ set: t.time }">{{ t.time || $t('无') }}</span>
           <Icon name="chevron-right" class="prop-arrow" :class="{ open: panel === 'time' }" />
         </button>
         <Transition name="panel">
@@ -262,9 +271,9 @@ const fmt = (ms) => {
         </Transition>
         <button class="prop" @click="openRemind">
           <span class="prop-ico"><Icon name="bell" /></span>
-          <span class="prop-label">提醒</span>
+          <span class="prop-label">{{ $t('提醒') }}</span>
           <span class="prop-val" :class="{ set: t.time && t.remind != null }">
-            {{ !t.time ? '先设时间' : !state.settings.remindOn && t.remind != null ? '已关闭全部提醒' : remindLabel(t.remind) }}
+            {{ !t.time ? $t('先设时间') : !state.settings.remindOn && t.remind != null ? $t('已关闭全部提醒') : remindLabel(t.remind) }}
           </span>
           <Icon name="chevron-right" class="prop-arrow" :class="{ open: panel === 'remind' }" />
         </button>
@@ -273,8 +282,8 @@ const fmt = (ms) => {
         </Transition>
         <button v-if="!t.parentId" class="prop" @click="togglePanel('repeat')">
           <span class="prop-ico"><Icon name="repeat" /></span>
-          <span class="prop-label">重复</span>
-          <span class="prop-val" :class="{ set: t.repeat }">{{ t.repeat ? repeatLabel(t.repeat, t.date, true) : '不重复' }}</span>
+          <span class="prop-label">{{ $t('重复') }}</span>
+          <span class="prop-val" :class="{ set: t.repeat }">{{ t.repeat ? repeatLabel(t.repeat, t.date, true) : $t('不重复') }}</span>
           <Icon name="chevron-right" class="prop-arrow" :class="{ open: panel === 'repeat' }" />
         </button>
         <Transition name="panel">
@@ -286,7 +295,7 @@ const fmt = (ms) => {
 
       <template v-if="!t.parentId">
       <div class="td-label">
-        子任务<template v-if="progress[1]"> · <span class="num">{{ progress[0] }}/{{ progress[1] }}</span></template>
+        {{ $t('子任务') }}<template v-if="progress[1]"> · <span class="num">{{ progress[0] }}/{{ progress[1] }}</span></template>
       </div>
       <div class="st">
         <TransitionGroup tag="div" name="list" class="st-list">
@@ -308,7 +317,7 @@ const fmt = (ms) => {
           <input
             ref="subInput"
             v-model="newSub"
-            placeholder="添加子任务，可以写“明天下午3点 买菜”"
+            :placeholder="$t('添加子任务，可以写“明天下午3点 买菜”')"
             maxlength="120"
             enterkeyhint="next"
             @keydown.enter.prevent="onAddSub"
@@ -319,27 +328,27 @@ const fmt = (ms) => {
       </div>
       </template>
 
-      <div class="td-label">象限</div>
+      <div class="td-label">{{ $t('象限') }}</div>
       <QuadPanel :model-value="quadrantOf(t)" @update:model-value="setQ" />
 
-      <div class="td-label">备注</div>
+      <div class="td-label">{{ $t('备注') }}</div>
       <textarea
         ref="noteEl"
         v-model="t.note"
         class="td-note"
         rows="3"
-        placeholder="添加备注…"
+        :placeholder="$t('添加备注…')"
         @input="autosize($event.target)"
       />
 
       <div class="td-foot">
         <span>
-          创建于 {{ fmt(t.createdAt) }}
-          <template v-if="t.repeat"> · 已完成 {{ t.doneDates.length }} 次</template>
-          <template v-else-if="t.doneAt && !t.dropped"> · 完成于 {{ fmt(t.doneAt) }}</template>
+          {{ $t('创建于 {time}', { time: fmt(t.createdAt) }) }}
+          <template v-if="t.repeat"> · {{ $t('已完成 {n} 次', { n: t.doneDates.length }) }}</template>
+          <template v-else-if="t.doneAt && !t.dropped"> · {{ $t('完成于 {time}', { time: fmt(t.doneAt) }) }}</template>
         </span>
-        <button v-if="canDrop" class="td-drop press" @click="onDrop"><Icon name="ban" />放弃</button>
-        <button class="td-del press" @click="onDelete"><Icon name="trash" />删除</button>
+        <button v-if="canDrop" class="td-drop press" @click="onDrop"><Icon name="ban" />{{ $t('放弃') }}</button>
+        <button class="td-del press" @click="onDelete"><Icon name="trash" />{{ $t('删除') }}</button>
       </div>
     </div>
     </Transition>

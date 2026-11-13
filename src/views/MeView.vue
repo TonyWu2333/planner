@@ -2,7 +2,8 @@
 import { ref, computed } from 'vue';
 import Icon from '../components/Icon.vue';
 import { state, tasksOn } from '../lib/store.js';
-import { today, addDays, mondayOf, parseYmd, ymd, WEEKDAY } from '../lib/date.js';
+import { today, addDays, mondayOf, parseYmd, ymd, weekdayName } from '../lib/date.js';
+import { $t } from '../lib/i18n.js';
 import { exportBackup, importBackup } from '../lib/backup.js';
 import { REMIND_OPTIONS, remindLabel, notifyState } from '../lib/notify.js';
 import { haptic, toast } from '../lib/ui.js';
@@ -36,18 +37,18 @@ const last7 = computed(() => {
   const counts = Object.fromEntries(days.map((d) => [d, 0]));
   for (const d of doneDays.value) if (d in counts) counts[d]++;
   const max = Math.max(1, ...Object.values(counts));
-  return days.map((d) => ({ d, n: counts[d], h: counts[d] / max, label: d === td.value ? '今' : WEEKDAY[parseYmd(d).getDay()] }));
+  return days.map((d) => ({ d, n: counts[d], h: counts[d] / max, label: d === td.value ? $t('今') : weekdayName(parseYmd(d).getDay(), true) }));
 });
 
 const greeting = computed(() => {
   const h = new Date().getHours();
-  return h < 6 ? '夜深了' : h < 11 ? '早上好' : h < 13 ? '中午好' : h < 18 ? '下午好' : '晚上好';
+  return $t(h < 6 ? '夜深了' : h < 11 ? '早上好' : h < 13 ? '中午好' : h < 18 ? '下午好' : '晚上好');
 });
 const summary = computed(() => {
   const left = todayCounted.value.length - todayDone.value;
-  if (!todayCounted.value.length) return '今天还没有安排任务';
-  if (!left) return '今天的任务全部完成了，真棒';
-  return `今天还有 ${left} 个任务待完成`;
+  if (!todayCounted.value.length) return $t('今天还没有安排任务');
+  if (!left) return $t('今天的任务全部完成了，真棒');
+  return $t('今天还有 {n} 个任务待完成', { n: left });
 });
 
 const fileInput = ref(null);
@@ -56,7 +57,7 @@ async function onExport() {
   try {
     await exportBackup();
   } catch (e) {
-    toast('导出失败：' + e.message);
+    toast($t('导出失败：{msg}', { msg: e.message }));
   }
 }
 async function onImport(e) {
@@ -72,6 +73,13 @@ function cycleDefaultRemind() {
   const i = REMIND_OPTIONS.indexOf(state.settings.defaultRemind);
   state.settings.defaultRemind = REMIND_OPTIONS[(i + 1) % REMIND_OPTIONS.length];
 }
+// 语言：跟随系统 → 中文 → English → 跟随系统
+const LANGS = ['auto', 'zh', 'en'];
+const langLabel = computed(() => ({ zh: '中文', en: 'English' })[state.settings.lang] ?? $t('跟随系统'));
+function cycleLang() {
+  haptic.select();
+  state.settings.lang = LANGS[(LANGS.indexOf(state.settings.lang) + 1) % LANGS.length];
+}
 function toggle(key) {
   haptic.select();
   state.settings[key] = !state.settings[key];
@@ -82,14 +90,15 @@ const codeOk = computed(() => !!parseCode(state.settings.syncCode));
 const syncHost = computed(() => parseCode(state.settings.syncCode)?.url.replace(/^https?:\/\//, '') ?? '');
 const syncStatus = computed(() => {
   if (!state.settings.syncOn) return '';
-  if (!codeOk.value) return state.settings.syncCode ? '连接码格式不对：应该是 地址#令牌' : '填入服务器启动时打印的连接码';
-  if (syncState.busy) return '正在同步…';
-  if (syncState.error) return `同步失败：${syncState.error}`;
+  if (!codeOk.value) return $t(state.settings.syncCode ? '连接码格式不对：应该是 地址#令牌' : '填入服务器启动时打印的连接码');
+  if (syncState.busy) return $t('正在同步…');
+  if (syncState.error) return $t('同步失败：{msg}', { msg: syncState.error });
   if (syncState.at) {
     const d = new Date(syncState.at);
-    return `已同步 · ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} · ${syncHost.value}`;
+    const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    return $t('已同步 · {time} · {host}', { time, host: syncHost.value });
   }
-  return '还没同步过';
+  return $t('还没同步过');
 });
 function toggleSync() {
   toggle('syncOn');
@@ -102,31 +111,31 @@ function onCodeChange(e) {
 async function onSyncNow() {
   haptic.light();
   await syncNow();
-  toast(syncState.error ? `同步失败：${syncState.error}` : '同步完成');
+  toast(syncState.error ? $t('同步失败：{msg}', { msg: syncState.error }) : $t('同步完成'));
 }
 </script>
 
 <template>
   <div class="meview scroll">
-    <header class="page-header"><h1>我的</h1></header>
+    <header class="page-header"><h1>{{ $t('我的') }}</h1></header>
 
     <section class="hero">
       <div class="hero-text">
         <p class="hero-hi">{{ greeting }}</p>
         <p class="hero-sum">{{ summary }}</p>
         <div class="hero-bar"><i :style="{ width: ratio * 100 + '%' }" /></div>
-        <p class="hero-num num">{{ todayDone }} / {{ todayCounted.length }} 已完成</p>
+        <p class="hero-num num">{{ $t('{done} / {total} 已完成', { done: todayDone, total: todayCounted.length }) }}</p>
       </div>
     </section>
 
     <section class="stats">
-      <div class="stat"><b class="num">{{ weekDone }}</b><span>本周完成</span></div>
-      <div class="stat"><b class="num">{{ pendingAll }}</b><span>待办总数</span></div>
-      <div class="stat" :class="{ warn: overdue }"><b class="num">{{ overdue }}</b><span>已过期</span></div>
+      <div class="stat"><b class="num">{{ weekDone }}</b><span>{{ $t('本周完成') }}</span></div>
+      <div class="stat"><b class="num">{{ pendingAll }}</b><span>{{ $t('待办总数') }}</span></div>
+      <div class="stat" :class="{ warn: overdue }"><b class="num">{{ overdue }}</b><span>{{ $t('已过期') }}</span></div>
     </section>
 
     <section class="card">
-      <div class="card-head"><b>近 7 天完成</b><span class="num">共 {{ last7.reduce((s, x) => s + x.n, 0) }} 个</span></div>
+      <div class="card-head"><b>{{ $t('近 7 天完成') }}</b><span class="num">{{ $t('共 {n} 个', { n: last7.reduce((s, x) => s + x.n, 0) }) }}</span></div>
       <div class="bars">
         <div v-for="x in last7" :key="x.d" class="bar" :class="{ today: x.d === td }">
           <span class="bar-n num">{{ x.n || '' }}</span>
@@ -136,62 +145,73 @@ async function onSyncNow() {
       </div>
     </section>
 
-    <div class="group-title">日历显示</div>
+    <div class="group-title">{{ $t('通用') }}</div>
+    <section class="list">
+      <button class="li" @click="cycleLang">
+        <span class="li-ico" style="--c: #14b8a6">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M3.5 12h17M12 3.5c2.4 2.5 3.6 5.3 3.6 8.5s-1.2 6-3.6 8.5c-2.4-2.5-3.6-5.3-3.6-8.5s1.2-6 3.6-8.5z" /></svg>
+        </span>
+        <span class="li-main">{{ $t('语言') }}</span>
+        <span class="li-val">{{ langLabel }}</span>
+      </button>
+    </section>
+
+    <div class="group-title">{{ $t('日历显示') }}</div>
     <section class="list">
       <button class="li" @click="toggle('showLunar')">
         <span class="li-ico" style="--c: #8b5cf6"><Icon name="lunar" /></span>
-        <span class="li-main">农历与节气</span>
+        <span class="li-main">{{ $t('农历与节气') }}</span>
         <span class="switch" :class="{ on: state.settings.showLunar }"><i /></span>
       </button>
       <button class="li" @click="toggle('showHoliday')">
         <span class="li-ico" style="--c: #ef4444"><Icon name="holiday" /></span>
-        <span class="li-main">法定节假日与调休</span>
+        <span class="li-main">{{ $t('法定节假日与调休') }}</span>
         <span class="switch" :class="{ on: state.settings.showHoliday }"><i /></span>
       </button>
     </section>
 
-    <div class="group-title">提醒</div>
+    <div class="group-title">{{ $t('提醒') }}</div>
     <section class="list">
       <button class="li" @click="toggle('remindOn')">
         <span class="li-ico" style="--c: #f59e0b"><Icon name="bell" /></span>
-        <span class="li-main">到点提醒<small>设了时间的任务会发系统通知，App 关着也会响</small></span>
+        <span class="li-main">{{ $t('到点提醒') }}<small>{{ $t('设了时间的任务会发系统通知，App 关着也会响') }}</small></span>
         <span class="switch" :class="{ on: state.settings.remindOn }"><i /></span>
       </button>
       <button class="li" :disabled="!state.settings.remindOn" @click="cycleDefaultRemind">
         <span class="li-ico" style="--c: #4b5cf0"><Icon name="clock" /></span>
-        <span class="li-main">新任务默认提醒<small>点一下切换；单个任务可以在详情里改</small></span>
+        <span class="li-main">{{ $t('新任务默认提醒') }}<small>{{ $t('点一下切换；单个任务可以在详情里改') }}</small></span>
         <span class="li-val">{{ remindLabel(state.settings.defaultRemind) }}</span>
       </button>
     </section>
     <p v-if="state.settings.remindOn && notifyState.permission === 'denied'" class="li-warn">
-      通知权限没开，提醒发不出来：系统设置 → 应用 → 可及清单 → 通知，打开“允许通知”。
+      {{ $t('通知权限没开，提醒发不出来：系统设置 → 应用 → 可及清单 → 通知，打开“允许通知”。') }}
     </p>
 
-    <div class="group-title">数据</div>
+    <div class="group-title">{{ $t('数据') }}</div>
     <section class="list">
       <button class="li" @click="onExport">
         <span class="li-ico" style="--c: #0ea5e9"><Icon name="upload" /></span>
-        <span class="li-main">导出备份<small>生成 JSON 文件，发到微信或网盘保存</small></span>
+        <span class="li-main">{{ $t('导出备份') }}<small>{{ $t('生成 JSON 文件，发到微信或网盘保存') }}</small></span>
         <Icon name="chevron-right" class="li-arrow" />
       </button>
       <button class="li" @click="fileInput.click()">
         <span class="li-ico" style="--c: #10b981"><Icon name="download" /></span>
-        <span class="li-main">从备份恢复<small>会替换当前全部 {{ state.tasks.length }} 条任务</small></span>
+        <span class="li-main">{{ $t('从备份恢复') }}<small>{{ $t('会替换当前全部 {n} 条任务', { n: state.tasks.length }) }}</small></span>
         <Icon name="chevron-right" class="li-arrow" />
       </button>
       <input ref="fileInput" type="file" hidden @change="onImport" />
     </section>
 
-    <div class="group-title">同步与 Agent</div>
+    <div class="group-title">{{ $t('同步与 Agent') }}</div>
     <section class="list">
       <button class="li" @click="toggleSync">
         <span class="li-ico" style="--c: #6366f1"><Icon name="cloud" /></span>
-        <span class="li-main">同步到自己的服务器<small>让电脑或服务器上的 agent（Claude Code、Codex、Hermes）也能看和改你的任务</small></span>
+        <span class="li-main">{{ $t('同步到自己的服务器') }}<small>{{ $t('让电脑或服务器上的 agent（Claude Code、Codex、Hermes）也能看和改你的任务') }}</small></span>
         <span class="switch" :class="{ on: state.settings.syncOn }"><i /></span>
       </button>
       <template v-if="state.settings.syncOn">
         <label class="li sync-code">
-          <span class="li-main">连接码<small>服务器启动时会打印，格式是 地址#令牌</small></span>
+          <span class="li-main">{{ $t('连接码') }}<small>{{ $t('服务器启动时会打印，格式是 地址#令牌') }}</small></span>
           <input
             :value="state.settings.syncCode"
             type="text"
@@ -204,7 +224,7 @@ async function onSyncNow() {
           />
         </label>
         <button class="li" :disabled="!codeOk || syncState.busy" @click="onSyncNow">
-          <span class="li-main">立即同步<small :class="{ err: syncState.error || (state.settings.syncCode && !codeOk) }">{{ syncStatus }}</small></span>
+          <span class="li-main">{{ $t('立即同步') }}<small :class="{ err: syncState.error || (state.settings.syncCode && !codeOk) }">{{ syncStatus }}</small></span>
           <Icon name="chevron-right" class="li-arrow" />
         </button>
       </template>
@@ -213,8 +233,8 @@ async function onSyncNow() {
     <section class="list note-card">
       <div class="li static">
         <span class="li-ico" style="--c: #64748b"><Icon name="shield" /></span>
-        <span v-if="state.settings.syncOn" class="li-main">数据保存在本机和你自己的服务器<small>不经过任何第三方。连接码里有令牌，别发给别人。</small></span>
-        <span v-else class="li-main">数据只保存在本机<small>不联网、不上传。卸载 App 或清除应用数据会一起删除，建议定期导出备份。</small></span>
+        <span v-if="state.settings.syncOn" class="li-main">{{ $t('数据保存在本机和你自己的服务器') }}<small>{{ $t('不经过任何第三方。连接码里有令牌，别发给别人。') }}</small></span>
+        <span v-else class="li-main">{{ $t('数据只保存在本机') }}<small>{{ $t('不联网、不上传。卸载 App 或清除应用数据会一起删除，建议定期导出备份。') }}</small></span>
       </div>
     </section>
     <p class="ver">
@@ -223,7 +243,7 @@ async function onSyncNow() {
         <path d="M32,45h18v17h-18z" stroke-width="8" />
         <circle cx="42.5" cy="76" r="6.5" />
       </svg>
-      可及清单 · v{{ version }}
+      {{ $t('可及清单') }} · v{{ version }}
     </p>
   </div>
 </template>
@@ -244,7 +264,7 @@ async function onSyncNow() {
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 16px 0; }
 .stat { padding: 14px 12px; border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-1); display: flex; flex-direction: column; gap: 2px; }
 .stat b { font-size: 24px; font-weight: 700; line-height: 1.1; }
-.stat span { font-size: 12px; color: var(--text-3); }
+.stat span { font-size: 12px; line-height: 1.3; color: var(--text-3); }
 .stat.warn b { color: var(--danger); }
 
 .card { margin: 12px 16px 0; padding: 16px; border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-1); }
@@ -256,7 +276,7 @@ async function onSyncNow() {
 .bar i { width: 100%; max-width: 22px; border-radius: 6px; background: var(--fill-2); transition: height .6s var(--ease); }
 .bar.today i { background: var(--accent); }
 .bar-n { font-size: 11px; color: var(--text-3); height: 14px; }
-.bar-l { font-size: 11.5px; color: var(--text-3); }
+.bar-l { font-size: 11.5px; color: var(--text-3); white-space: nowrap; }
 .bar.today .bar-l, .bar.today .bar-n { color: var(--accent); font-weight: 600; }
 
 .group-title { margin: 22px 32px 8px; font-size: 13px; font-weight: 600; color: var(--text-3); }

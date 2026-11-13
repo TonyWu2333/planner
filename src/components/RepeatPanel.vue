@@ -4,7 +4,8 @@ import { ref, computed } from 'vue';
 import Icon from './Icon.vue';
 import DatePanel from './DatePanel.vue';
 import { parseRule, formatRule, repeatLabel } from '../lib/repeat.js';
-import { parseYmd, addDays, dateLabel, today } from '../lib/date.js';
+import { parseYmd, addDays, dateLabel, today, weekdayName } from '../lib/date.js';
+import { $t, isEn } from '../lib/i18n.js';
 import { haptic } from '../lib/ui.js';
 
 // date：开始日期。每月 / 每年按它的几号、几月几号重复；“每周X”按它的星期几
@@ -16,6 +17,8 @@ const dow = computed(() => parseYmd(props.date || today()).getDay());
 const base = computed(() => (rule.value ? formatRule({ ...rule.value, until: '' }) : ''));
 
 const presets = computed(() => ['d1', 'w1:12345', `w1:${dow.value}`, 'm1', 'y1']);
+// 英文的 "Monthly on the 13th" 在三列格子里放不下，格子里只写 Monthly / Yearly，完整规则看底下那行
+const presetLabel = (p) => (isEn() && p[0] === 'm' ? 'Monthly' : isEn() && p[0] === 'y' ? 'Yearly' : repeatLabel(p, props.date));
 
 // 第二个参数 done：一键选的（常用项、不重复）选完就收起面板；自定义还要接着调，不收起
 function emitRule(r, done = false) {
@@ -29,12 +32,15 @@ function pickPreset(p) {
 // ---- 自定义 ----
 // 还没设重复时，从“每天”开始改
 const cur = computed(() => rule.value ?? { freq: 'd', n: 1, days: [], until: '' });
+// 单位按钮：中文 天 / 周 / 个月 / 年，英文跟着数字变单复数（day / days）。
+// 故意不走 $t：'周'、'年' 这种单字键太通用，容易和别处（比如日历的“周”视图）撞
 const FREQS = [
-  ['d', '天'],
-  ['w', '周'],
-  ['m', '个月'],
-  ['y', '年'],
+  ['d', '天', 'day'], // i18n: 英文见 freqLabel
+  ['w', '周', 'week'], // i18n: 英文见 freqLabel
+  ['m', '个月', 'month'], // i18n: 英文见 freqLabel
+  ['y', '年', 'year'], // i18n: 英文见 freqLabel
 ];
+const freqLabel = (zh, en) => (isEn() ? (cur.value.n === 1 ? en : en + 's') : zh);
 function setFreq(f) {
   if (rule.value && f === cur.value.freq) return;
   emitRule({ ...cur.value, freq: f, days: f === 'w' ? (cur.value.days.length ? cur.value.days : [dow.value]) : [] });
@@ -45,7 +51,7 @@ function step(d) {
   emitRule({ ...cur.value, n });
 }
 // 星期按周一在前排
-const WEEK = [1, 2, 3, 4, 5, 6, 0].map((d) => [d, '日一二三四五六'[d]]);
+const WEEK = [1, 2, 3, 4, 5, 6, 0];
 function toggleDay(d) {
   const days = cur.value.days.includes(d) ? cur.value.days.filter((x) => x !== d) : [...cur.value.days, d];
   if (!days.length) return; // 至少留一天
@@ -57,10 +63,10 @@ const untilOpen = ref(false);
 const endOptions = computed(() => {
   const from = props.date && props.date > today() ? props.date : today();
   return [
-    { label: '永不结束', icon: 'ban', value: '' },
-    { label: '1个月后', icon: 'week', value: addDays(from, 30) },
-    { label: '3个月后', icon: 'week', value: addDays(from, 91) },
-    { label: '今年年底', icon: 'calendar', value: `${parseYmd(from).getFullYear()}-12-31` },
+    { label: $t('永不结束'), icon: 'ban', value: '' },
+    { label: $t('1个月后'), icon: 'week', value: addDays(from, 30) },
+    { label: $t('3个月后'), icon: 'week', value: addDays(from, 91) },
+    { label: $t('今年年底'), icon: 'calendar', value: `${parseYmd(from).getFullYear()}-12-31` },
   ];
 });
 function setUntil(v) {
@@ -69,39 +75,41 @@ function setUntil(v) {
   untilOpen.value = false;
 }
 
-const summary = computed(() => (rule.value ? repeatLabel(props.modelValue, props.date, true) : '不重复'));
+const summary = computed(() => (rule.value ? repeatLabel(props.modelValue, props.date, true) : $t('不重复')));
 </script>
 
 <template>
-  <div class="rpanel">
+  <div class="rpanel" :class="{ en: isEn() }">
     <div class="rgrid">
       <button v-for="p in presets" :key="p" class="tbtn press" :class="{ on: base === p }" @click="pickPreset(p)">
-        {{ repeatLabel(p, date) }}
+        {{ presetLabel(p) }}
       </button>
-      <button class="tclear press" :class="{ on: !modelValue }" @click="emitRule(null, true)"><Icon name="ban" />不重复</button>
+      <button class="tclear press" :class="{ on: !modelValue }" @click="emitRule(null, true)"><Icon name="ban" />{{ $t('不重复') }}</button>
     </div>
 
     <div class="rp-custom" :class="{ idle: !rule }">
       <div class="rp-row">
-        <span class="rp-label">每</span>
+        <span class="rp-label">{{ $t('每') }}</span>
         <div class="rp-step">
-          <button class="tbtn press" aria-label="减少" :disabled="cur.n <= 1" @click="step(-1)">−</button>
+          <button class="tbtn press" :aria-label="$t('减少')" :disabled="cur.n <= 1" @click="step(-1)">−</button>
           <b class="num">{{ cur.n }}</b>
-          <button class="tbtn press" aria-label="增加" @click="step(1)">+</button>
+          <button class="tbtn press" :aria-label="$t('增加')" @click="step(1)">+</button>
         </div>
         <div class="rp-freq">
-          <button v-for="[f, l] in FREQS" :key="f" class="tbtn press" :class="{ on: rule && cur.freq === f }" @click="setFreq(f)">{{ l }}</button>
+          <button v-for="[f, zh, en] in FREQS" :key="f" class="tbtn press" :class="{ on: rule && cur.freq === f }" @click="setFreq(f)">{{ freqLabel(zh, en) }}</button>
         </div>
       </div>
 
       <div v-if="rule?.freq === 'w'" class="rp-days">
-        <button v-for="[d, l] in WEEK" :key="d" class="tbtn press" :class="{ on: cur.days.includes(d) }" @click="toggleDay(d)">{{ l }}</button>
+        <button v-for="d in WEEK" :key="d" class="tbtn press" :class="{ on: cur.days.includes(d) }" @click="toggleDay(d)">{{ weekdayName(d, true) }}</button>
       </div>
-      <p v-else-if="rule?.freq === 'm' || rule?.freq === 'y'" class="rp-note">按开始日期 {{ dateLabel(date || today()) }} 的{{ rule.freq === 'm' ? '几号' : '月和日' }}重复</p>
+      <p v-else-if="rule?.freq === 'm' || rule?.freq === 'y'" class="rp-note">
+        {{ rule.freq === 'm' ? $t('按开始日期 {date} 的几号重复', { date: dateLabel(date || today()) }) : $t('按开始日期 {date} 的月和日重复', { date: dateLabel(date || today()) }) }}
+      </p>
 
       <button class="rp-row rp-until press" :disabled="!rule" @click="untilOpen = !untilOpen">
-        <span class="rp-label">结束</span>
-        <span class="rp-until-val" :class="{ set: rule?.until }">{{ rule?.until ? `到 ${dateLabel(rule.until)}` : '永不结束' }}</span>
+        <span class="rp-label">{{ $t('结束') }}</span>
+        <span class="rp-until-val" :class="{ set: rule?.until }">{{ rule?.until ? $t('到 {date}', { date: dateLabel(rule.until) }) : $t('永不结束') }}</span>
         <Icon name="chevron-right" class="rp-arrow" :class="{ open: untilOpen }" />
       </button>
       <DatePanel v-if="untilOpen && rule" class="rp-date" :model-value="rule.until" :options="endOptions" @update:model-value="setUntil" />
@@ -137,6 +145,12 @@ const summary = computed(() => (rule.value ? repeatLabel(props.modelValue, props
 .rp-arrow { width: 16px; height: 16px; color: var(--text-3); transition: transform .25s var(--ease); }
 .rp-arrow.open { transform: rotate(90deg); }
 .rp-date { margin-top: -4px; }
+/* 英文：标签 "Every" / "Ends" 更宽；单位按钮 days / months 一行放不下，挪到数字下面单独一行 */
+.rpanel.en .rp-label { width: 40px; }
+.rpanel.en .rp-row:not(.rp-until) { flex-wrap: wrap; row-gap: 8px; }
+.rpanel.en .rp-freq { flex-basis: 100%; padding-left: 50px; }
+.rpanel.en .rp-days { padding-left: 50px; }
+.rpanel.en .rp-note { margin-left: 50px; }
 .rhint { display: flex; align-items: center; gap: 5px; margin: 12px 2px 0; font-size: 12.5px; color: var(--text-2); font-weight: 500; }
 .rhint .icon { width: 13px; height: 13px; color: var(--accent); flex: none; }
 </style>

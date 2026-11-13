@@ -8,7 +8,7 @@
 <br>
 **你的 AI agent 也能直接看和改你的任务。**
 
-[![Version](https://img.shields.io/badge/version-0.11.0-4a5cf0?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/version-0.12.0-4a5cf0?style=flat-square)](package.json)
 [![Platform](https://img.shields.io/badge/platform-Android-3ddc84?style=flat-square&logo=android&logoColor=white)](#-安装)
 [![Vue 3](https://img.shields.io/badge/Vue-3-42b883?style=flat-square&logo=vuedotjs&logoColor=white)](https://vuejs.org)
 [![Vite](https://img.shields.io/badge/Vite-8-646cff?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
@@ -52,6 +52,7 @@
 | **搜索** | 搜索标题和备注，多个关键词需同时命中 |
 | **放弃** | 把任务标记为「不打算做了」，不删除，保留记录 |
 | **备份与同步** | 导出 / 导入 JSON，也可以同步到你自己的服务器 |
+| **中英文界面** | 跟随系统语言，也可以在「我的 → 语言」里切换；一句话添加目前只识别中文 |
 | **细节打磨** | 全面屏沉浸式界面；底部弹窗和键盘动画逐帧同步 |
 
 ## 📸 截图

@@ -8,7 +8,8 @@
 //   y<n>            每 n 年，按开始日期的几月几号
 //   后面可以带 ~YYYY-MM-DD：到这天为止
 // 老数据里的 daily / weekdays / weekly / monthly 在读入时换成新写法（见 normalizeRepeat）。
-import { parseYmd, addDays, diffDays, mondayOf, WEEKDAY } from './date.js';
+import { parseYmd, addDays, diffDays, mondayOf, WEEKDAY, weekdayName, monthDay, ordinal } from './date.js';
+import { isEn } from './i18n.js';
 
 const RE = /^([dwmy])(\d{1,3})(?::([0-6]{1,7}))?(?:~(\d{4}-\d{2}-\d{2}))?$/;
 const LEGACY = { daily: 'd1', weekdays: 'w1:12345', monthly: 'm1' };
@@ -88,7 +89,7 @@ export const instanceOf = (t, d) => ({ ...t, date: d, done: t.doneDates.includes
 
 // 星期按周一在前排
 const byMonFirst = (a, b) => ((a + 6) % 7) - ((b + 6) % 7);
-const md = (d) => `${d.getMonth() + 1}月${d.getDate()}日`;
+const md = monthDay;
 
 // "每周一、三、五"；withUntil 时带上“，到 12月31日”
 export function repeatLabel(repeat, date, withUntil = false) {
@@ -96,6 +97,23 @@ export function repeatLabel(repeat, date, withUntil = false) {
   if (!r) return '';
   const start = date ? parseYmd(date) : new Date();
   let s = '';
+  if (isEn()) {
+    const n = r.n;
+    if (r.freq === 'd') s = n === 1 ? 'Daily' : `Every ${n} days`;
+    else if (r.freq === 'w') {
+      const set = r.days.join('');
+      if (n === 1 && set === '0123456') s = 'Daily';
+      else if (n === 1 && set === '12345') s = 'Weekdays';
+      else if (n === 1 && set === '06') s = 'Weekends';
+      else {
+        const list = [...r.days].sort(byMonFirst).map((d) => weekdayName(d)).join(', ');
+        s = n === 1 ? `Every ${list}` : `Every ${n} weeks on ${list}`;
+      }
+    } else if (r.freq === 'm') s = `${n === 1 ? 'Monthly' : `Every ${n} months`} on the ${ordinal(start.getDate())}`;
+    else s = `${n === 1 ? 'Yearly' : `Every ${n} years`} on ${md(start)}`;
+    if (withUntil && r.until) s += `, until ${md(parseYmd(r.until))}`;
+    return s;
+  }
   switch (r.freq) {
     case 'd':
       s = r.n === 1 ? '每天' : `每${r.n}天`;

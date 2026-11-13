@@ -9,6 +9,7 @@ import { state, toggleDone, removeTask, skipOccurrence, childrenOf } from '../li
 import { today } from '../lib/date.js';
 import { occursOn, nextOccurrence, instanceOf, streakOf, repeatGroup, parseRule } from '../lib/repeat.js';
 import { toast } from '../lib/ui.js';
+import { $t } from '../lib/i18n.js';
 
 const emit = defineEmits(['open', 'add', 'search']);
 
@@ -21,13 +22,15 @@ const GROUPS = [
   ['ended', '已结束'],
 ];
 // 连续完成的单位：每天 → 天，每周只有一天 → 周，每月 → 个月，其他按“次”
+// 只给中文单位，TaskRow 会把"连续 {n} 天"整句翻译成英文
 function unitOf(t) {
   const r = parseRule(t.repeat);
-  if (repeatGroup(t.repeat) === 'daily') return '天';
-  if (r.freq === 'w' && r.n === 1 && r.days.length === 1) return '周';
-  if (r.freq === 'm' && r.n === 1) return '个月';
-  if (r.freq === 'y' && r.n === 1) return '年';
-  return '次';
+  let u = '次';
+  if (repeatGroup(t.repeat) === 'daily') u = '天';
+  else if (r.freq === 'w' && r.n === 1 && r.days.length === 1) u = '周';
+  else if (r.freq === 'm' && r.n === 1) u = '个月';
+  else if (r.freq === 'y' && r.n === 1) u = '年';
+  return u;
 }
 
 const routines = computed(() => state.tasks.filter((t) => t.repeat && !t.parentId));
@@ -40,11 +43,12 @@ const groups = computed(() => {
   const d0 = today();
   const all = routines.value.map((t) => {
     const occ = occursOn(t, d0) ? d0 : nextOccurrence(t, d0);
+    const streak = streakOf(t, d0);
     return {
       task: occ ? instanceOf(t, occ) : { ...t, occ: '' },
       group: occ ? repeatGroup(t.repeat) : 'ended', // 过了结束日期、以后不会再发生
       isToday: occ === d0,
-      streak: streakOf(t, d0),
+      streak,
       unit: unitOf(t),
     };
   });
@@ -58,19 +62,19 @@ const groups = computed(() => {
           (a.task.time || '99').localeCompare(b.task.time || '99') ||
           a.task.createdAt - b.task.createdAt,
       );
-    return { key, label, items };
+    return { key, label: $t(label), items };
   }).filter((g) => g.items.length);
 });
 
 function onDelete(t) {
   const kids = childrenOf(t.id).length;
   const undo = removeTask(t.id);
-  toast(kids ? `已删除「${t.title}」及 ${kids} 个子任务` : `已删除「${t.title}」`, { action: undo });
+  toast(kids ? $t('已删除「{title}」及 {n} 个子任务', { title: t.title, n: kids }) : $t('已删除「{title}」', { title: t.title }), { action: undo });
 }
 function onSkip(t) {
   if (!t.occ) return;
   const undo = skipOccurrence(t.id, t.occ);
-  toast(t.occ === today() ? '今天这次已跳过' : '下一次已跳过', { action: undo });
+  toast($t(t.occ === today() ? '今天这次已跳过' : '下一次已跳过'), { action: undo });
 }
 </script>
 
@@ -78,8 +82,8 @@ function onSkip(t) {
   <div class="rtview">
   <div class="rt-scroll scroll">
     <header class="page-header">
-      <h1>打卡</h1>
-      <button class="icon-btn rt-search press" aria-label="搜索" @click="emit('search')"><Icon name="search" /></button>
+      <h1>{{ $t('打卡') }}</h1>
+      <button class="icon-btn rt-search press" :aria-label="$t('搜索')" @click="emit('search')"><Icon name="search" /></button>
     </header>
 
     <template v-if="routines.length">
@@ -91,10 +95,10 @@ function onSkip(t) {
           </svg>
         </div>
         <div class="rt-sum-text">
-          <b v-if="!todayList.length">今天没有要打卡的</b>
-          <b v-else-if="doneToday === todayList.length">今天的卡都打完了</b>
-          <b v-else>今天还剩 {{ todayList.length - doneToday }} 项</b>
-          <span class="num">今天 {{ doneToday }}/{{ todayList.length }} · 共 {{ routines.length }} 项打卡</span>
+          <b v-if="!todayList.length">{{ $t('今天没有要打卡的') }}</b>
+          <b v-else-if="doneToday === todayList.length">{{ $t('今天的卡都打完了') }}</b>
+          <b v-else>{{ $t('今天还剩 {n} 项', { n: todayList.length - doneToday }) }}</b>
+          <span class="num">{{ $t('今天 {done}/{total} · 共 {n} 项打卡', { done: doneToday, total: todayList.length, n: routines.length }) }}</span>
         </div>
       </section>
 
@@ -121,14 +125,14 @@ function onSkip(t) {
 
     <div v-else class="empty rt-empty">
       <EmptyArt />
-      <b>还没有打卡任务</b>
-      <p>每天、每周都要做的事放在这里打卡<br />试试输入「每天 跑步」或「每周五晚上8点 周会」</p>
-      <button class="empty-btn press" @click="emit('add', { repeat: 'd1' })"><Icon name="plus" />添加打卡</button>
+      <b>{{ $t('还没有打卡任务') }}</b>
+      <p>{{ $t('每天、每周都要做的事放在这里打卡') }}<br />{{ $t('试试输入「每天 跑步」或「每周五晚上8点 周会」') }}</p>
+      <button class="empty-btn press" @click="emit('add', { repeat: 'd1' })"><Icon name="plus" />{{ $t('添加打卡') }}</button>
     </div>
 
     <div class="rt-pad" />
   </div>
-    <button class="fab" aria-label="新建打卡" @click="emit('add', { repeat: 'd1' })"><Icon name="plus" /></button>
+    <button class="fab" :aria-label="$t('新建打卡')" @click="emit('add', { repeat: 'd1' })"><Icon name="plus" /></button>
   </div>
 </template>
 

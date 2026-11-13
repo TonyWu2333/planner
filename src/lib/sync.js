@@ -6,6 +6,7 @@
 // 设置里填一个「连接码」：服务器地址#令牌，比如 http://192.168.1.5:18787#3f9a...（服务器启动时会打印出来）。
 import { reactive } from 'vue';
 import { state, syncPayload, applyRemote, onLocalChange } from './store.js';
+import { t } from './i18n.js';
 
 export const syncState = reactive({ busy: false, at: 0, error: '' });
 
@@ -34,8 +35,8 @@ export async function syncNow() {
       }),
       15000,
     );
-    if (res.status === 401) throw new Error('令牌不对');
-    if (!res.ok) throw new Error(`服务器返回 ${res.status}`);
+    if (res.status === 401) throw new Error(t('令牌不对'));
+    if (!res.ok) throw new Error(t('服务器返回 {code}', { code: res.status }));
     const remote = await res.json();
     applyRemote(remote);
     lastRev = remote.rev;
@@ -43,7 +44,7 @@ export async function syncNow() {
     syncState.error = '';
     watchServer();
   } catch (e) {
-    syncState.error = e.message === 'timeout' ? '连不上服务器' : /fetch|network|connect/i.test(e.message) ? '连不上服务器' : e.message;
+    syncState.error = e.message === 'timeout' || /fetch|network|connect/i.test(e.message) ? t('连不上服务器') : e.message;
   } finally {
     syncState.busy = false;
     if (again) {

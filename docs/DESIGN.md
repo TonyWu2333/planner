@@ -153,6 +153,7 @@ Weights in use: 400, 500, 600, 650, 700, 750. Do not go below 11 px. New code us
 - No exclamation marks, no emoji in UI text.
 - Numbers: Arabic digits, 「3 项」 with a space, times as `14:00`, dates as 「11月20日 周五」.
 - Errors say what happened and what to do: 「连不上服务器，回到同一个 Wi-Fi 再试」.
+- English UI: every string is written in Chinese inside `$t('…')` and translated in `src/lib/i18n-en.js` (glossary at the top) and `src/lib/i18n-en/*.js`. English uses sentence case, short labels and curly quotes. Lunar dates, solar terms and holiday names stay Chinese in both languages.
 
 ## 11. Agent integration
 

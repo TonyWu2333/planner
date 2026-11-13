@@ -12,6 +12,7 @@ import { parseInput } from '../lib/parse.js';
 import { dateLabel, today } from '../lib/date.js';
 import { QUADRANTS, quadrantFlags } from '../lib/quadrant.js';
 import { haptic, toast } from '../lib/ui.js';
+import { $t } from '../lib/i18n.js';
 
 const props = defineProps({ open: Boolean, defaults: { type: Object, default: () => ({}) } });
 const emit = defineEmits(['close']);
@@ -56,6 +57,12 @@ const recognized = computed(() => parsed.value.hits.length > 0 && !(manual.date 
 const whenLabel = computed(() =>
   effRepeat.value ? repeatLabel(effRepeat.value, effDate.value) : effDate.value ? dateLabel(effDate.value) : '',
 );
+// “已识别 明天 15:00，标题「买菜」”：时间部分要加粗，所以拆成 [前, 后] 两段
+const parseMsg = computed(() => {
+  const s = $t('已识别 {when}，标题「{title}」', { title: parsed.value.title });
+  const i = s.indexOf('{when}');
+  return [s.slice(0, i), s.slice(i + 6)];
+});
 const canSend = computed(() => text.value.trim().length > 0);
 
 function togglePanel(p) {
@@ -106,7 +113,11 @@ function submit() {
   const r = effRepeat.value;
   addTask({ title: parsed.value.title, note: note.value, date: effDate.value, time: effTime.value, repeat: r, ...quadrantFlags(q.value) });
   haptic.success();
-  toast(r ? `已添加 · ${[whenLabel.value, effTime.value].filter(Boolean).join(' ')}` : effDate.value ? `已添加到${whenLabel.value}` : '已添加（无日期）');
+  toast(
+    r ? $t('已添加 · {when}', { when: [whenLabel.value, effTime.value].filter(Boolean).join(' ') })
+      : effDate.value ? $t('已添加到{when}', { when: whenLabel.value })
+      : $t('已添加（无日期）'),
+  );
   emit('close');
 }
 </script>
@@ -120,7 +131,7 @@ function submit() {
           ref="input"
           v-model="text"
           class="qa-input"
-          placeholder="准备做点什么？"
+          :placeholder="$t('准备做点什么？')"
           enterkeyhint="send"
           maxlength="200"
           @keydown.enter.prevent="submit"
@@ -131,34 +142,34 @@ function submit() {
       <Transition name="collapse">
         <div v-if="recognized" class="qa-parse">
           <Icon name="sparkle" />
-          <span>已识别 <b>{{ [whenLabel, effTime].filter(Boolean).join(' ') }}</b>，标题「{{ parsed.title }}」</span>
-          <button @click="useParse = false">撤销识别</button>
+          <span>{{ parseMsg[0] }}<b>{{ [whenLabel, effTime].filter(Boolean).join(' ') }}</b>{{ parseMsg[1] }}</span>
+          <button @click="useParse = false">{{ $t('撤销识别') }}</button>
         </div>
       </Transition>
 
       <Transition name="collapse">
-        <input v-if="showNote" v-model="note" class="qa-note" placeholder="添加备注…" />
+        <input v-if="showNote" v-model="note" class="qa-note" :placeholder="$t('添加备注…')" />
       </Transition>
 
       <div class="qa-bar">
         <div class="qa-chips">
           <button class="chip press" :class="{ on: effDate, active: panel === 'date' }" @click="togglePanel('date')">
-            <Icon name="calendar" />{{ effDate ? dateLabel(effDate) : '日期' }}
+            <Icon name="calendar" />{{ effDate ? dateLabel(effDate) : $t('日期') }}
           </button>
           <button class="chip press" :class="{ on: effTime, active: panel === 'time' }" @click="togglePanel('time')">
-            <Icon name="clock" /><span class="num">{{ effTime || '时间' }}</span>
+            <Icon name="clock" /><span class="num">{{ effTime || $t('时间') }}</span>
           </button>
           <button class="chip press" :class="{ on: effRepeat, active: panel === 'repeat' }" @click="togglePanel('repeat')">
-            <Icon name="repeat" />{{ effRepeat ? repeatLabel(effRepeat, effDate) : '重复' }}
+            <Icon name="repeat" />{{ effRepeat ? repeatLabel(effRepeat, effDate) : $t('重复') }}
           </button>
           <button class="chip qchip on press" :class="['q' + q, { active: panel === 'quad' }]" @click="togglePanel('quad')">
             <Icon name="flag" />{{ QUADRANTS[q].short }}
           </button>
-          <button class="chip press icon-only" :class="{ on: showNote }" aria-label="备注" @click="showNote = !showNote">
+          <button class="chip press icon-only" :class="{ on: showNote }" :aria-label="$t('备注')" @click="showNote = !showNote">
             <Icon name="note" />
           </button>
         </div>
-        <button class="qa-send" :disabled="!canSend" aria-label="添加" @click="submit"><Icon name="arrow-up" /></button>
+        <button class="qa-send" :disabled="!canSend" :aria-label="$t('添加')" @click="submit"><Icon name="arrow-up" /></button>
       </div>
 
       <Transition name="panel">

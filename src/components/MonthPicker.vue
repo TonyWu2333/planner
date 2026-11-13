@@ -3,8 +3,9 @@
 import { ref, watch } from 'vue';
 import Sheet from './Sheet.vue';
 import Icon from './Icon.vue';
-import { lunarYearLabel, today, parseYmd } from '../lib/date.js';
+import { lunarYearLabel, today, parseYmd, monthName } from '../lib/date.js';
 import { haptic } from '../lib/ui.js';
+import { isEn } from '../lib/i18n.js';
 
 const props = defineProps({ open: Boolean, year: Number, month: Number });
 const emit = defineEmits(['close', 'pick', 'today']);
@@ -29,12 +30,12 @@ function pick(m) {
   <Sheet :open="open" @close="emit('close')">
     <div class="mp">
       <div class="mp-head">
-        <button class="mp-arrow press" aria-label="上一年" @click="shiftYear(-1)"><Icon name="chevron-left" /></button>
+        <button class="mp-arrow press" :aria-label="$t('上一年')" @click="shiftYear(-1)"><Icon name="chevron-left" /></button>
         <div class="mp-year">
-          <b class="num">{{ y }}年</b>
+          <b class="num">{{ $t('{y}年', { y }) }}</b>
           <small>{{ lunarYearLabel(y) }}</small>
         </div>
-        <button class="mp-arrow press" aria-label="下一年" @click="shiftYear(1)"><Icon name="chevron-right" /></button>
+        <button class="mp-arrow press" :aria-label="$t('下一年')" @click="shiftYear(1)"><Icon name="chevron-right" /></button>
       </div>
       <div class="mp-body">
         <Transition :name="dir">
@@ -46,12 +47,13 @@ function pick(m) {
               :class="{ sel: y === year && m - 1 === month, now: y === td.getFullYear() && m - 1 === td.getMonth() }"
               @click="pick(m - 1)"
             >
-              <span class="num">{{ m }}</span>月
+              <span v-if="isEn()">{{ monthName(m - 1) }}</span>
+              <template v-else><span class="num">{{ m }}</span>月</template>
             </button>
           </div>
         </Transition>
       </div>
-      <button class="mp-today press" @click="emit('today')"><Icon name="calendar" />回到今天</button>
+      <button class="mp-today press" @click="emit('today')"><Icon name="calendar" />{{ $t('回到今天') }}</button>
     </div>
   </Sheet>
 </template>

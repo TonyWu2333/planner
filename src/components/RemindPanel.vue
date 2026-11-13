@@ -2,6 +2,7 @@
 import Icon from './Icon.vue';
 import { REMIND_OPTIONS, remindShort } from '../lib/notify.js';
 import { haptic } from '../lib/ui.js';
+import { isEn } from '../lib/i18n.js';
 
 defineProps({ modelValue: { type: Number, default: null } });
 const emit = defineEmits(['update:modelValue']);
@@ -13,11 +14,11 @@ function pick(v) {
 
 <template>
   <div class="rpanel">
-    <div class="remgrid">
+    <div class="remgrid" :class="{ en: isEn() }">
       <button v-for="m in REMIND_OPTIONS" :key="m" class="tbtn press" :class="{ on: modelValue === m }" @click="pick(m)">
         {{ remindShort(m) }}
       </button>
-      <button class="tclear press" :class="{ on: modelValue == null }" @click="pick(null)"><Icon name="ban" />不提醒</button>
+      <button class="tclear press" :class="{ on: modelValue == null }" @click="pick(null)"><Icon name="ban" />{{ $t('不提醒') }}</button>
     </div>
   </div>
 </template>
@@ -25,4 +26,7 @@ function pick(v) {
 <style>
 .remgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .remgrid .tclear { height: 40px; }
+.remgrid .tbtn { padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 英文 "15 min before" 在三列里偏挤 */
+.remgrid.en .tbtn { font-size: 13.5px; }
 </style>

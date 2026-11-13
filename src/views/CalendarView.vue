@@ -7,7 +7,8 @@ import EmptyArt from '../components/EmptyArt.vue';
 import MonthPicker from '../components/MonthPicker.vue';
 import { state, toggleDone, removeTask, updateTask, tasksOn, skipOccurrence, childrenOf, dropTask, countsAsDone } from '../lib/store.js';
 import { occursOn } from '../lib/repeat.js';
-import { today, addDays, parseYmd, ymd, diffDays, dayInfo, dateLabel, lunarYearLabel, WEEKDAY, mondayOf } from '../lib/date.js';
+import { today, addDays, parseYmd, ymd, diffDays, dayInfo, dateLabel, lunarYearLabel, mondayOf, monthDay, monthName, weekdayName } from '../lib/date.js';
+import { $t, isEn } from '../lib/i18n.js';
 import { quadrantOf, byTime, byDate } from '../lib/quadrant.js';
 import { haptic, toast, clickGuard } from '../lib/ui.js';
 
@@ -236,11 +237,13 @@ const showDone = ref(true);
 const info = computed(() => dayInfo(selected.value));
 const heading = computed(() => {
   const rel = dateLabel(selected.value);
-  const md = `${sel.value.getMonth() + 1}月${sel.value.getDate()}日`;
-  const isRel = ['今天', '明天', '后天', '昨天'].includes(rel);
+  const md = monthDay(sel.value);
+  // 今天/明天/后天/昨天（英文没有“后天”）
+  const n = diffDays(selected.value, today());
+  const isRel = n >= -1 && n <= (isEn() ? 1 : 2);
   return {
     title: isRel ? rel : md,
-    sub: [isRel && md, `周${WEEKDAY[sel.value.getDay()]}`, info.value.full].filter(Boolean).join(' · '),
+    sub: [isRel && md, weekdayName(sel.value.getDay()), info.value.full].filter(Boolean).join(' · '),
   };
 });
 // 今天所在的星期列高亮（当前显示的范围包含今天时）
@@ -256,35 +259,43 @@ const progress = computed(() => (ringTotal.value ? ringDone.value / ringTotal.va
 // “已完成 3 · 已放弃 1”，为 0 的那项不写
 const doneHead = computed(() => {
   const dropped = doneTasks.value.length - ringDone.value;
-  return [ringDone.value && `已完成 ${ringDone.value}`, dropped && `已放弃 ${dropped}`].filter(Boolean).join(' · ');
+  return [ringDone.value && $t('已完成 {n}', { n: ringDone.value }), dropped && $t('已放弃 {n}', { n: dropped })].filter(Boolean).join(' · ');
 });
 
 // ---- 任务操作 ----
 function onDelete(t) {
   const kids = childrenOf(t.id).length;
   const undo = removeTask(t.id);
-  const extra = [t.repeat && '以后的重复', kids && `${kids} 个子任务`].filter(Boolean).join('和');
-  toast(extra ? `已删除「${t.title}」及${extra}` : `已删除「${t.title}」`, { action: undo });
+  const p = { title: t.title, n: kids };
+  const msg =
+    t.repeat && kids
+      ? $t('已删除「{title}」及以后的重复和{n} 个子任务', p)
+      : t.repeat
+        ? $t('已删除「{title}」及以后的重复', p)
+        : kids
+          ? $t('已删除「{title}」及{n} 个子任务', p)
+          : $t('已删除「{title}」', p);
+  toast(msg, { action: undo });
 }
 function onDrop(t) {
   const undo = dropTask(t.id);
-  toast(`已放弃「${t.title}」`, { action: undo });
+  toast($t('已放弃「{title}」', { title: t.title }), { action: undo });
 }
 function onPostpone(t) {
   if (t.repeat) {
     const undo = skipOccurrence(t.id, t.occ);
-    return toast('已跳过这一次', { action: undo });
+    return toast($t('已跳过这一次'), { action: undo });
   }
   const prev = t.date;
   const next = addDays(t.date && t.date > today() ? t.date : today(), 1);
   updateTask(t.id, { date: next });
-  toast(`已推迟到${dateLabel(next)}`, { action: () => updateTask(t.id, { date: prev }) });
+  toast($t('已推迟到{date}', { date: dateLabel(next) }), { action: () => updateTask(t.id, { date: prev }) });
 }
 function moveOverdueToToday() {
   const prev = overdue.value.map((t) => [t.id, t.date]);
   prev.forEach(([id]) => updateTask(id, { date: today() }));
   haptic.success();
-  toast(`${prev.length} 个任务已移到今天`, { action: () => prev.forEach(([id, d]) => updateTask(id, { date: d })) });
+  toast($t('{n} 个任务已移到今天', { n: prev.length }), { action: () => prev.forEach(([id, d]) => updateTask(id, { date: d })) });
 }
 
 defineExpose({ selected });
@@ -295,26 +306,27 @@ defineExpose({ selected });
     <div class="cal-bg" />
     <div class="cal-head">
       <header class="cal-header">
-        <button class="cal-title" aria-label="选择年月" @click="openPicker">
-          <span class="cal-month num">{{ month + 1 }}<small>月</small></span>
+        <button class="cal-title" :aria-label="$t('选择年月')" @click="openPicker">
+          <span v-if="isEn()" class="cal-month">{{ monthName(month) }}</span>
+          <span v-else class="cal-month num">{{ month + 1 }}<small>月</small></span>
           <span class="cal-sub"><span class="num">{{ year }}</span><em>{{ lunarYearLabel(year) }}</em></span>
           <Icon name="chevron-down" class="cal-caret" />
         </button>
         <div class="cal-tools">
-          <button class="cal-search press" aria-label="搜索" @click="emit('search')"><Icon name="search" /></button>
+          <button class="cal-search press" :aria-label="$t('搜索')" @click="emit('search')"><Icon name="search" /></button>
           <Transition name="pop">
-            <button v-if="selected !== today()" class="today-btn press" aria-label="回到今天" @click="goToday">今</button>
+            <button v-if="selected !== today()" class="today-btn press" :class="{ wide: isEn() }" :aria-label="$t('回到今天')" @click="goToday">{{ $t('今') }}</button>
           </Transition>
           <div class="cal-nav">
-            <button class="press" :aria-label="mode === 'month' ? '上个月' : '上一周'" @click="shift(-1)"><Icon name="chevron-left" /></button>
+            <button class="press" :aria-label="mode === 'month' ? $t('上个月') : $t('上一周')" @click="shift(-1)"><Icon name="chevron-left" /></button>
             <i />
-            <button class="press" :aria-label="mode === 'month' ? '下个月' : '下一周'" @click="shift(1)"><Icon name="chevron-right" /></button>
+            <button class="press" :aria-label="mode === 'month' ? $t('下个月') : $t('下一周')" @click="shift(1)"><Icon name="chevron-right" /></button>
           </div>
         </div>
       </header>
 
       <div class="cal-week">
-        <span v-for="(w, i) in ['一', '二', '三', '四', '五', '六', '日']" :key="w" :class="{ we: i >= 5, cur: i === todayCol }">{{ w }}</span>
+        <span v-for="(d, i) in [1, 2, 3, 4, 5, 6, 0]" :key="i" :class="{ we: i >= 5, cur: i === todayCol }">{{ weekdayName(d, true) }}</span>
       </div>
     </div>
 
@@ -346,7 +358,7 @@ defineExpose({ selected });
         </div>
       </div>
 
-      <button class="cal-handle" :style="{ transform: `translate3d(0, ${drop}px, 0)` }" :aria-label="mode === 'month' ? '收起为周视图' : '展开月视图'" @click="setMode(mode === 'month' ? 'week' : 'month')">
+      <button class="cal-handle" :style="{ transform: `translate3d(0, ${drop}px, 0)` }" :aria-label="mode === 'month' ? $t('收起为周视图') : $t('展开月视图')" @click="setMode(mode === 'month' ? 'week' : 'month')">
         <i :class="mode" />
       </button>
 
@@ -365,7 +377,7 @@ defineExpose({ selected });
           <h2>
             {{ heading.title }}
             <span v-if="state.settings.showHoliday && info.holidayName" class="ah-tag">{{ info.holidayName }}</span>
-            <span v-else-if="state.settings.showHoliday && info.holiday === '班'" class="ah-tag work">调休上班</span>
+            <span v-else-if="state.settings.showHoliday && info.holiday === '班'" class="ah-tag work">{{ $t('调休上班') }}</span>
           </h2>
           <p>{{ heading.sub }}</p>
         </div>
@@ -381,8 +393,8 @@ defineExpose({ selected });
       <!-- 已过期（只在今天显示） -->
       <section v-if="overdue.length" class="group">
         <div class="group-head danger">
-          <span>已过期 · {{ overdue.length }}</span>
-          <button class="link press" @click="moveOverdueToToday">全部移到今天</button>
+          <span>{{ $t('已过期 · {n}', { n: overdue.length }) }}</span>
+          <button class="link press" @click="moveOverdueToToday">{{ $t('全部移到今天') }}</button>
         </div>
         <TransitionGroup tag="div" name="list" class="tlist">
           <TaskRow
@@ -438,9 +450,9 @@ defineExpose({ selected });
 
       <div v-if="!dayTasks.length && !overdue.length" class="empty">
         <EmptyArt />
-        <b>{{ selected === today() ? '今天还没有安排' : '这天还没有安排' }}</b>
-        <p>试试输入「明天下午3点开会」，自动识别时间</p>
-        <button class="empty-btn press" @click="emit('add', { date: selected })"><Icon name="plus" />添加任务</button>
+        <b>{{ selected === today() ? $t('今天还没有安排') : $t('这天还没有安排') }}</b>
+        <p>{{ $t('试试输入「明天下午3点开会」，自动识别时间') }}</p>
+        <button class="empty-btn press" @click="emit('add', { date: selected })"><Icon name="plus" />{{ $t('添加任务') }}</button>
       </div>
       </div>
       <div class="agenda-pad" />
@@ -448,7 +460,7 @@ defineExpose({ selected });
 
     <MonthPicker :open="picker" :year="year" :month="month" @close="picker = false" @pick="pickMonth" @today="pickToday" />
 
-    <button class="fab" aria-label="新建任务" @click="emit('add', { date: selected })">
+    <button class="fab" :aria-label="$t('新建任务')" @click="emit('add', { date: selected })">
       <Icon name="plus" />
     </button>
   </div>
@@ -478,6 +490,7 @@ defineExpose({ selected });
 .cal-nav button:active { background: var(--fill-2); }
 .cal-nav .icon { width: 18px; height: 18px; stroke-width: 2.2; }
 .cal-nav i { width: 1px; height: 14px; background: var(--fill-2); }
+.today-btn.wide { width: auto; padding: 0 11px; border-radius: 99px; font-size: 13px; }
 .pop-enter-active, .pop-leave-active { transition: transform .3s var(--spring), opacity .2s; }
 .pop-enter-from, .pop-leave-to { transform: scale(.5); opacity: 0; }
 

@@ -1,4 +1,5 @@
 import { reactive, watchEffect } from 'vue';
+import { t } from './i18n.js';
 import { Capacitor } from '@capacitor/core';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 
@@ -17,7 +18,7 @@ export const clickGuard = { until: 0 };
 // ---- 底部提示条，可带“撤销”之类的按钮 ----
 export const toastState = reactive({ id: 0, text: '', action: null, actionText: '' });
 let timer;
-export function toast(text, { action = null, actionText = '撤销', duration = action ? 4000 : 2000 } = {}) {
+export function toast(text, { action = null, actionText = t('撤销'), duration = action ? 4000 : 2000 } = {}) {
   Object.assign(toastState, { id: toastState.id + 1, text, action, actionText });
   clearTimeout(timer);
   timer = setTimeout(() => (toastState.text = ''), duration);

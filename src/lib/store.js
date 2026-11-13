@@ -20,7 +20,7 @@ export const state = reactive({
   deleted: {},
   // remindOn：到点提醒总开关；defaultRemind：新任务设了时间时默认提前几分钟提醒（0 = 准时）
   // syncOn / syncCode：同步到自建服务器（见 sync.js），连接码 = 服务器地址#令牌
-  settings: { showLunar: true, showHoliday: true, remindOn: true, defaultRemind: 0, syncOn: false, syncCode: '' },
+  settings: { lang: 'auto', showLunar: true, showHoliday: true, remindOn: true, defaultRemind: 0, syncOn: false, syncCode: '' },
 });
 
 const uid = () =>

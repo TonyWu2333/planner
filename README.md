@@ -8,7 +8,7 @@
 <br>
 **And your AI agent can read and manage your tasks, too.**
 
-[![Version](https://img.shields.io/badge/version-0.11.0-4a5cf0?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/version-0.12.0-4a5cf0?style=flat-square)](package.json)
 [![Platform](https://img.shields.io/badge/platform-Android-3ddc84?style=flat-square&logo=android&logoColor=white)](#-install)
 [![Vue 3](https://img.shields.io/badge/Vue-3-42b883?style=flat-square&logo=vuedotjs&logoColor=white)](https://vuejs.org)
 [![Vite](https://img.shields.io/badge/Vite-8-646cff?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
@@ -19,7 +19,7 @@
 
 <br>
 
-<img src="docs/screenshots/hero.png" alt="可及清单 screenshots: calendar, Eisenhower matrix, check-ins, quick add" width="100%">
+<img src="docs/screenshots/en/hero.png" alt="Reach List screenshots: calendar, Eisenhower matrix, routines, quick add" width="100%">
 
 </div>
 
@@ -43,23 +43,24 @@ Most to-do apps are either too simple to plan with or too heavy to open every mo
 | **Eisenhower matrix** | Important × urgent quadrants, range filter (all / today / this week), long-press drag between quadrants |
 | **Natural-language quick add** | Chinese date, time and repeat parsing, with a live "recognised as…" preview you can undo |
 | **Flexible repeats** | Every N days / weeks / months / years, pick weekdays, optional end date; skip or complete a single occurrence |
-| **打卡 (check-ins)** | All repeating tasks in one tab, grouped by rule, with a progress ring and 🔥 streak counters |
+| **Routines (打卡)** | All repeating tasks in one tab, grouped by rule, with a progress ring and 🔥 streak counters |
 | **Subtasks** | Full tasks of their own: own date, time, reminder, quadrant and notes |
 | **Reminders** | Local notifications for the next 30 days, including repeats, with exact alarms |
 | **Gestures** | Swipe right to complete; swipe left to postpone, drop or delete; undo toast; haptics |
 | **Search** | Across titles and notes, multiple terms must all match |
 | **Dropped state** | Mark a task as "no longer planning to do" without deleting its history |
 | **Backup & sync** | JSON export / import, plus optional sync to your own server |
+| **English and Chinese** | Follows the system language, or pick one under Me → Language. Natural-language quick add understands Chinese |
 | **Polished details** | Edge-to-edge UI; bottom sheets move frame by frame with the keyboard |
 
 ## 📸 Screenshots
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/calendar.png" width="230"><br><sub><b>Calendar</b><br>lunar, holidays, agenda</sub></td>
-    <td align="center"><img src="docs/screenshots/quadrant.png" width="230"><br><sub><b>Eisenhower matrix</b><br>drag between quadrants</sub></td>
-    <td align="center"><img src="docs/screenshots/routine.png" width="230"><br><sub><b>打卡</b><br>streaks &amp; progress</sub></td>
-    <td align="center"><img src="docs/screenshots/quickadd.png" width="230"><br><sub><b>Quick add</b><br>natural-language input</sub></td>
+    <td align="center"><img src="docs/screenshots/en/calendar.png" width="230"><br><sub><b>Calendar</b><br>lunar, holidays, agenda</sub></td>
+    <td align="center"><img src="docs/screenshots/en/quadrant.png" width="230"><br><sub><b>Eisenhower matrix</b><br>drag between quadrants</sub></td>
+    <td align="center"><img src="docs/screenshots/en/routine.png" width="230"><br><sub><b>Routines</b><br>streaks &amp; progress</sub></td>
+    <td align="center"><img src="docs/screenshots/en/quickadd.png" width="230"><br><sub><b>Quick add</b><br>dates parsed from Chinese text</sub></td>
   </tr>
 </table>
 

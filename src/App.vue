@@ -83,7 +83,7 @@ onMounted(() => {
     <nav class="tabbar">
       <button v-for="t in TABS" :key="t.key" class="tab" :class="{ on: tab === t.key }" @click="setTab(t.key)">
         <Icon :name="tab === t.key ? t.icon + '-fill' : t.icon" />
-        <span>{{ t.label }}</span>
+        <span>{{ $t(t.label) }}</span>
       </button>
     </nav>
 

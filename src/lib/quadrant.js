@@ -1,10 +1,11 @@
 import { today } from './date.js';
+import { t } from './i18n.js';
 
 export const QUADRANTS = {
-  1: { name: '重要且紧急', short: '重要紧急', hint: '立即处理' },
-  2: { name: '重要不紧急', short: '重要', hint: '计划去做' },
-  3: { name: '紧急不重要', short: '紧急', hint: '快速处理' },
-  4: { name: '不重要不紧急', short: '一般', hint: '有空再做' },
+  1: { get name() { return t('重要且紧急'); }, get short() { return t('重要紧急'); }, get hint() { return t('立即处理'); } },
+  2: { get name() { return t('重要不紧急'); }, get short() { return t('重要'); }, get hint() { return t('计划去做'); } },
+  3: { get name() { return t('紧急不重要'); }, get short() { return t('紧急'); }, get hint() { return t('快速处理'); } },
+  4: { get name() { return t('不重要不紧急'); }, get short() { return t('一般'); }, get hint() { return t('有空再做'); } },
 };
 export const quadrantOf = (t) => (t.important ? (t.urgent ? 1 : 2) : t.urgent ? 3 : 4);
 export const quadrantFlags = (q) => ({ important: q <= 2, urgent: q === 1 || q === 3 });

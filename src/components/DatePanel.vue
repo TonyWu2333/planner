@@ -2,7 +2,8 @@
 import { ref, computed } from 'vue';
 import Icon from './Icon.vue';
 import MonthGrid from './MonthGrid.vue';
-import { today, addDays, mondayOf, parseYmd } from '../lib/date.js';
+import { today, addDays, mondayOf, parseYmd, weekdayName } from '../lib/date.js';
+import { $t } from '../lib/i18n.js';
 import { haptic } from '../lib/ui.js';
 
 // options：顶上一排快捷按钮，默认 今天 / 明天 / 下周一 / 无日期
@@ -14,11 +15,14 @@ const year = ref(base.getFullYear());
 const month = ref(base.getMonth());
 
 const quick = computed(() => props.options ?? [
-  { label: '今天', icon: 'sun', value: today() },
-  { label: '明天', icon: 'sunrise', value: addDays(today(), 1) },
-  { label: '下周一', icon: 'week', value: addDays(mondayOf(today()), 7) },
-  { label: '无日期', icon: 'ban', value: '' },
+  { label: $t('今天'), icon: 'sun', value: today() },
+  { label: $t('明天'), icon: 'sunrise', value: addDays(today(), 1) },
+  { label: $t('下周一'), icon: 'week', value: addDays(mondayOf(today()), 7) },
+  { label: $t('无日期'), icon: 'ban', value: '' },
 ]);
+
+// 表头：周一在前
+const WEEK = [1, 2, 3, 4, 5, 6, 0];
 
 function pick(v) {
   haptic.select();
@@ -44,11 +48,11 @@ function shift(n) {
       </button>
     </div>
     <div class="dp-head">
-      <b class="num">{{ year }}年{{ month + 1 }}月</b>
-      <button class="icon-btn" aria-label="上个月" @click="shift(-1)"><Icon name="chevron-left" /></button>
-      <button class="icon-btn" aria-label="下个月" @click="shift(1)"><Icon name="chevron-right" /></button>
+      <b class="num">{{ $t('{y}年{m}月', { y: year, m: month + 1 }) }}</b>
+      <button class="icon-btn" :aria-label="$t('上个月')" @click="shift(-1)"><Icon name="chevron-left" /></button>
+      <button class="icon-btn" :aria-label="$t('下个月')" @click="shift(1)"><Icon name="chevron-right" /></button>
     </div>
-    <div class="dp-week"><span v-for="w in '一二三四五六日'" :key="w">{{ w }}</span></div>
+    <div class="dp-week"><span v-for="w in WEEK" :key="w">{{ weekdayName(w, true) }}</span></div>
     <MonthGrid :year="year" :month="month" :selected="modelValue" compact @select="pick" />
   </div>
 </template>

@@ -10,6 +10,7 @@ import { dateLabel } from '../lib/date.js';
 import { repeatLabel } from '../lib/repeat.js';
 import { subProgress, findTask } from '../lib/store.js';
 import { haptic, clickGuard } from '../lib/ui.js';
+import { $t } from '../lib/i18n.js';
 
 const props = defineProps({
   task: { type: Object, required: true },
@@ -27,6 +28,8 @@ const emit = defineEmits(['open', 'toggle', 'delete', 'postpone', 'drop']);
 const q = computed(() => quadrantOf(props.task));
 const sub = computed(() => subProgress(props.task, props.task.occ));
 const parentTitle = computed(() => (props.task.parentId && !props.hideParent ? findTask(props.task.parentId)?.title ?? '' : ''));
+// streakUnit 是中文单位（天/周/个月/年/次），拼成完整的一句再翻译："连续 3 天" / "3-day streak"
+const streakText = computed(() => $t(`连续 {n} ${props.streakUnit}`, { n: props.streak }));
 const pending = ref(false);
 const done = computed(() => (pending.value ? !props.task.done : props.task.done));
 
@@ -131,12 +134,12 @@ const openRow = { close: null };
     <div v-if="swipe" class="trow-under">
       <div class="under-done" :class="{ hot: dx > COMPLETE_AT }" :style="{ opacity: dx > 0 ? 1 : 0 }">
         <Icon :name="task.done ? 'x' : 'check'" />
-        <span>{{ task.dropped ? '恢复' : task.done ? '未完成' : '完成' }}</span>
+        <span>{{ task.dropped ? $t('恢复') : task.done ? $t('未完成') : $t('完成') }}</span>
       </div>
       <div class="under-actions" :style="{ opacity: dx < 0 ? 1 : 0, '--p': Math.min(1, -dx / actionsW) }">
-        <button v-if="postpone" class="ua postpone" @click="act('postpone')"><Icon :name="task.repeat ? 'skip' : 'arrow-right'" /><span>{{ task.repeat ? '跳过' : '推迟' }}</span></button>
-        <button v-if="canDrop" class="ua drop" @click="act('drop')"><Icon name="ban" /><span>放弃</span></button>
-        <button class="ua delete" @click="act('delete')"><Icon name="trash" /><span>删除</span></button>
+        <button v-if="postpone" class="ua postpone" @click="act('postpone')"><Icon :name="task.repeat ? 'skip' : 'arrow-right'" /><span>{{ task.repeat ? $t('跳过') : $t('推迟') }}</span></button>
+        <button v-if="canDrop" class="ua drop" @click="act('drop')"><Icon name="ban" /><span>{{ $t('放弃') }}</span></button>
+        <button class="ua delete" @click="act('delete')"><Icon name="trash" /><span>{{ $t('删除') }}</span></button>
       </div>
     </div>
     <div
@@ -149,15 +152,15 @@ const openRow = { close: null };
       @pointercancel="onUp"
       @click="onClick"
     >
-      <button class="check" :aria-label="task.dropped ? '恢复' : done ? '标记为未完成' : '标记为完成'" @click.stop="toggle">
+      <button class="check" :aria-label="task.dropped ? $t('恢复') : done ? $t('标记为未完成') : $t('标记为完成')" @click.stop="toggle">
         <svg viewBox="0 0 24 24"><path :d="task.dropped && !pending ? 'M8 8l8 8M16 8l-8 8' : 'M6.5 12.5l3.6 3.6 7.4-8'" /></svg>
       </button>
       <div class="trow-body">
         <div class="trow-title"><span>{{ task.title }}</span></div>
         <div v-if="(showDate && task.date) || (compact && task.time) || task.note || (task.repeat && !hideRepeat) || streak > 1 || sub[1] || parentTitle || task.dropped" class="trow-meta">
-          <span v-if="task.dropped && !pending" class="meta-dropped">已放弃</span>
+          <span v-if="task.dropped && !pending" class="meta-dropped">{{ $t('已放弃') }}</span>
           <span v-if="showDate && task.date" :class="{ overdue: isOverdue(task) }">{{ dateLabel(task.date) }}</span>
-          <span v-if="streak > 1" class="meta-streak num"><Icon name="flame" />连续 {{ streak }} {{ streakUnit }}</span>
+          <span v-if="streak > 1" class="meta-streak num"><Icon name="flame" />{{ streakText }}</span>
           <span v-if="task.repeat && !hideRepeat" class="meta-repeat"><Icon name="repeat" /><span v-if="!compact">{{ repeatLabel(task.repeat, task.date) }}</span></span>
           <span v-if="compact && task.time" class="num meta-time"><Icon v-if="task.remind != null" name="bell" />{{ task.time }}</span>
           <span v-if="sub[1]" class="meta-sub" :class="{ all: sub[0] === sub[1] }"><Icon name="checklist" /><span class="num">{{ sub[0] }}/{{ sub[1] }}</span></span>
@@ -253,7 +256,7 @@ const openRow = { close: null };
 .compact .trow-main:active { background: var(--fill); }
 .compact .check { width: 18px; height: 18px; border-width: 1.6px; margin-top: 1px; background: transparent; }
 .compact .check svg { width: 12px; height: 12px; }
-.compact .trow-title { font-size: 14px; line-height: 1.4; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; }
+.compact .trow-title { font-size: 14px; line-height: 1.4; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 .compact .trow-title span { background: none; }
 .compact.done .trow-title { text-decoration: line-through; text-decoration-thickness: 1.2px; }
 .compact .trow-meta { font-size: 11.5px; margin-top: 2px; gap: 6px; white-space: nowrap; overflow: hidden; }
